@@ -1,0 +1,25 @@
+/* Hide scrollbar for all browsers */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Give wide desktops a balanced workspace: broader than the original narrow
+   column, without placing content directly against the browser edges. */
+@media (min-width: 1280px) {
+  .max-w-\[1128px\] {
+    max-width: 1600px;
+  }
+}
+
+/* An application confirmation uses the same blue outline as Easy Apply. */
+[class*="bg-[#00CC00]"] {
+  background-color: #fff;
+  border: 1px solid #0a66c2;
+  color: #0a66c2;
+}
+
