@@ -75,7 +75,7 @@ function pathToState(pathname, search, currentRole) {
   if (cleanPath.startsWith("/admin")) {
     const rawSub = cleanPath.replace(/^\/admin/, "").replace(/^\//, "");
     let adminSec = "overview";
-    if (["overview", "jobs", "companies", "students"].includes(rawSub)) {
+    if (["overview", "jobs", "internships", "companies", "students", "notifications", "settings"].includes(rawSub)) {
       adminSec = rawSub;
     }
     return { view: "admin", adminSection: adminSec };

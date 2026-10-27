@@ -369,7 +369,8 @@ function CompanyPortal({ section, setSection, userInfo, logout }) {
         eligibility: postForm.eligibility.trim(),
         perks: postForm.perks,
         selectionSteps: postForm.showSelection ? postForm.selectionSteps : [],
-        status: editingPost ? undefined : "Active",
+        // Don't pass status on create - backend always sets 'Review' for admin approval
+        // On edit, don't change status unless explicitly updated
       };
       if (postForm.minCgpa !== "") internshipPayload.minCgpa = Number(postForm.minCgpa);
 
@@ -390,7 +391,7 @@ function CompanyPortal({ section, setSection, userInfo, logout }) {
       setPostStep2(1);
       setSection("manage");
       window.dispatchEvent(new CustomEvent("interndesk:sync"));
-      toast.success(editingPost ? "Internship updated successfully! Students notified." : "Internship published successfully! Students can now see and apply.");
+      toast.success(editingPost ? "Internship updated successfully! Students notified." : "Internship submitted for review! An admin will approve it before students can see it.");
     } catch (error) {
       toast.error(error.message || "Could not save this internship.");
     } finally {

@@ -1,37 +1,60 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { api } from "../../api";
 import { toast } from "sonner";
-import { LogOut, Home, FileText, Building2, Users, Bell, Settings, Search } from "lucide-react";
+import { LogOut, Home, FileText, Building2, Users, Bell, Settings, Search, Trash2 } from "lucide-react";
 
 export function AdminDashboard({ section, setSection, userInfo, logout, setView }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
+
+  // Jobs / reviews state
   const [jobs, setJobs] = useState([]);
   const [jobsTotal, setJobsTotal] = useState(0);
   const [jobFilter, setJobFilter] = useState("all");
   const [jobSearch, setJobSearch] = useState("");
   const [jobPage, setJobPage] = useState(1);
   const [jobsLoading, setJobsLoading] = useState(false);
+
+  // All internships state (separate from job reviews)
+  const [allInternships, setAllInternships] = useState([]);
+  const [allInternshipsTotal, setAllInternshipsTotal] = useState(0);
+  const [internshipFilter, setInternshipFilter] = useState("all");
+  const [internshipSearch, setInternshipSearch] = useState("");
+  const [internshipPage, setInternshipPage] = useState(1);
+  const [internshipsLoading, setInternshipsLoading] = useState(false);
+
+  // Companies state
   const [companies, setCompanies] = useState([]);
   const [companiesTotal, setCompaniesTotal] = useState(0);
   const [companySearch, setCompanySearch] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("all");
   const [companyPage, setCompanyPage] = useState(1);
   const [companiesLoading, setCompaniesLoading] = useState(false);
+
+  // Students state
   const [students, setStudents] = useState([]);
   const [studentsTotal, setStudentsTotal] = useState(0);
   const [studentSearch, setStudentSearch] = useState("");
   const [studentPage, setStudentPage] = useState(1);
   const [studentsLoading, setStudentsLoading] = useState(false);
+
+  // Notifications state
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState("all");
+
+  // Settings state
   const [settings, setSettings] = useState(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
 
+  // Job detail modal
+  const [viewingJob, setViewingJob] = useState(null);
+
   const firstName = userInfo?.firstName || userInfo?.name?.split(" ")[0] || "Admin";
 
+  // ── Loaders ───────────────────────────────────────────────
   useEffect(() => {
     if (section !== "overview") return;
     setLoading(true);
@@ -51,13 +74,26 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
 
   useEffect(() => { if (section === "jobs") loadJobs(); }, [section, loadJobs]);
 
+  const loadInternships = useCallback(() => {
+    setInternshipsLoading(true);
+    api.adminJobs({ status: internshipFilter === "all" ? undefined : internshipFilter, search: internshipSearch || undefined, page: internshipPage, limit: 10 })
+      .then(data => { setAllInternships(data.jobs || []); setAllInternshipsTotal(data.total || 0); })
+      .catch(() => toast.error("Failed to load internships"))
+      .finally(() => setInternshipsLoading(false));
+  }, [internshipFilter, internshipSearch, internshipPage]);
+
+  useEffect(() => { if (section === "internships") loadInternships(); }, [section, loadInternships]);
+
   const loadCompanies = useCallback(() => {
     setCompaniesLoading(true);
-    api.adminCompanies({ search: companySearch || undefined, page: companyPage, limit: 10 })
+    const params = { search: companySearch || undefined, page: companyPage, limit: 10 };
+    if (companyFilter === "verified") params.verified = "true";
+    if (companyFilter === "unverified") params.verified = "false";
+    api.adminCompanies(params)
       .then(data => { setCompanies(data.companies || []); setCompaniesTotal(data.total || 0); })
       .catch(() => toast.error("Failed to load companies"))
       .finally(() => setCompaniesLoading(false));
-  }, [companySearch, companyPage]);
+  }, [companySearch, companyPage, companyFilter]);
 
   useEffect(() => { if (section === "companies") loadCompanies(); }, [section, loadCompanies]);
 
@@ -93,14 +129,34 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
 
   useEffect(() => { if (section === "settings") loadSettings(); }, [section, loadSettings]);
 
+  // ── Actions ───────────────────────────────────────────────
   const handleJobAction = async (id, status) => {
     setActionLoading(id);
     try {
       await api.adminUpdateJobStatus(id, status);
-      toast.success(`Job ${status === "Active" ? "approved" : "rejected"}`);
+      toast.success(`Job ${status === "Active" ? "approved" : status === "Rejected" ? "rejected" : status === "Closed" ? "closed" : "updated"}`);
       loadJobs();
+      if (section === "internships") loadInternships();
+      // Refresh stats
+      api.adminStats().then(data => setStats(data)).catch(() => {});
     } catch {
       toast.error("Failed to update job status");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteJob = async (id, title) => {
+    if (!window.confirm(`Are you sure you want to delete "${title}"? This cannot be undone.`)) return;
+    setActionLoading(id);
+    try {
+      await api.adminDeleteJob(id);
+      toast.success("Job deleted successfully");
+      loadJobs();
+      if (section === "internships") loadInternships();
+      api.adminStats().then(data => setStats(data)).catch(() => {});
+    } catch {
+      toast.error("Failed to delete job");
     } finally {
       setActionLoading(null);
     }
@@ -112,6 +168,7 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
       await api.adminVerifyCompany(id, isVerified);
       toast.success(`Company ${isVerified ? "verified" : "unverified"}`);
       loadCompanies();
+      api.adminStats().then(data => setStats(data)).catch(() => {});
     } catch {
       toast.error("Failed to update company");
     } finally {
@@ -119,9 +176,39 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
     }
   };
 
+  const handleDeleteCompany = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}" and all its internships? This cannot be undone.`)) return;
+    setActionLoading(id);
+    try {
+      await api.adminDeleteCompany(id);
+      toast.success("Company deleted successfully");
+      loadCompanies();
+      api.adminStats().then(data => setStats(data)).catch(() => {});
+    } catch {
+      toast.error("Failed to delete company");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteStudent = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}"? All their applications will also be removed.`)) return;
+    setActionLoading(id);
+    try {
+      await api.adminDeleteStudent(id);
+      toast.success("Student deleted successfully");
+      loadStudents();
+      api.adminStats().then(data => setStats(data)).catch(() => {});
+    } catch {
+      toast.error("Failed to delete student");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleMarkAllRead = async () => {
     try {
-      await api.markAllNotificationsRead();
+      await api.adminMarkAllNotificationsRead();
       toast.success("All notifications marked as read");
       loadNotifications();
     } catch {
@@ -151,6 +238,44 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
     }));
   };
 
+  // ── Helpers ───────────────────────────────────────────────
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "—";
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return "Just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
+  const totalJobPages = Math.ceil(jobsTotal / 10);
+  const totalInternshipPages = Math.ceil(allInternshipsTotal / 10);
+  const totalCompanyPages = Math.ceil(companiesTotal / 10);
+  const totalStudentPages = Math.ceil(studentsTotal / 10);
+
+  // ── Pagination component ──────────────────────────────────
+  const Pagination = ({ current, total, onChange }) => {
+    if (total <= 1) return null;
+    return (
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 20 }}>
+        <button onClick={() => onChange(Math.max(1, current - 1))} disabled={current <= 1} style={{ ...S.btn("sm"), background: "#fff", border: "1px solid #e0e0e0", color: current <= 1 ? "#ccc" : "#030213" }}>← Prev</button>
+        <span style={{ fontSize: 12, color: "#717182" }}>Page {current} of {total}</span>
+        <button onClick={() => onChange(Math.min(total, current + 1))} disabled={current >= total} style={{ ...S.btn("sm"), background: "#fff", border: "1px solid #e0e0e0", color: current >= total ? "#ccc" : "#030213" }}>Next →</button>
+      </div>
+    );
+  };
+
+  // ── Styles ────────────────────────────────────────────────
   const S = {
     container: { display: "flex", minHeight: "100vh", background: "#f5f5f7" },
     sidebar: { width: 160, flexShrink: 0, background: "#ffffff", borderRight: "1px solid #e0e0e0", display: "flex", flexDirection: "column", padding: "16px 12px", position: "sticky", top: 0, height: "100vh", overflowY: "auto" },
@@ -162,6 +287,18 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
     input: { background: "#f9f9f9", border: "1px solid #e0e0e0", borderRadius: 6, padding: "10px 12px", fontSize: 13, outline: "none", width: "100%" },
     btn: (variant = "md") => ({ padding: variant === "sm" ? "6px 14px" : "10px 20px", borderRadius: 6, border: "none", cursor: "pointer", fontWeight: 600, fontSize: variant === "sm" ? 12 : 13 }),
     statCard: { background: "#ffffff", border: "1px solid #e0e0e0", borderRadius: 8, padding: "16px", textAlign: "center" }
+  };
+
+  // ── Status badge helper ───────────────────────────────────
+  const StatusBadge = ({ status }) => {
+    const colors = {
+      Active: { bg: "#e8f5e9", color: "#22c55e" },
+      Review: { bg: "#fff3cd", color: "#f59e0b" },
+      Rejected: { bg: "#ffebee", color: "#ef4444" },
+      Closed: { bg: "#f0f0f0", color: "#717182" }
+    };
+    const c = colors[status] || colors.Closed;
+    return <span style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: c.bg, color: c.color }}>{status}</span>;
   };
 
   return (
@@ -219,7 +356,7 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
             <div style={{ width: 32, height: 32, borderRadius: 6, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>{firstName[0]}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#030213", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{firstName}</div>
-              <div style={{ fontSize: 9, color: "#717182", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>admin@interndesk.in</div>
+              <div style={{ fontSize: 9, color: "#717182", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userInfo?.email || "admin@interndesk.in"}</div>
             </div>
           </div>
           <button onClick={logout} style={{ ...S.btn("sm"), width: "100%", background: "transparent", border: "1px solid #e0e0e0", color: "#030213", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontSize: 11 }}>
@@ -229,6 +366,51 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
       </aside>
 
       <main style={S.main}>
+        {/* ═══ JOB DETAIL MODAL ═══ */}
+        {viewingJob && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+            <div style={{ background: "#fff", borderRadius: 12, width: "90%", maxWidth: 600, maxHeight: "85vh", overflow: "auto", padding: 32 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+                <div>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>{viewingJob.title}</h2>
+                  <p style={{ fontSize: 13, color: "#717182", margin: "4px 0 0 0" }}>{viewingJob.company}</p>
+                </div>
+                <button onClick={() => setViewingJob(null)} style={{ ...S.btn("sm"), background: "#f0f0f0", color: "#030213" }}>✕ Close</button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Status</span><div><StatusBadge status={viewingJob.status} /></div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Category</span><div style={{ fontSize: 13, fontWeight: 600, color: "#0a66c2" }}>{viewingJob.category}</div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Department</span><div style={{ fontSize: 13 }}>{viewingJob.department || "—"}</div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Location</span><div style={{ fontSize: 13 }}>{viewingJob.location || "Remote"}</div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Stipend</span><div style={{ fontSize: 13 }}>{viewingJob.stipend || "Unpaid"}</div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Duration</span><div style={{ fontSize: 13 }}>{viewingJob.duration || "—"}</div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Openings</span><div style={{ fontSize: 13 }}>{viewingJob.openings || 1}</div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Applicants</span><div style={{ fontSize: 13 }}>{viewingJob.applicants || 0}</div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Posted</span><div style={{ fontSize: 13 }}>{formatDate(viewingJob.createdAt)}</div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Deadline</span><div style={{ fontSize: 13 }}>{viewingJob.deadline || "—"}</div></div>
+              </div>
+              {viewingJob.description && (
+                <div style={{ marginBottom: 20 }}>
+                  <h4 style={{ fontSize: 12, fontWeight: 700, color: "#717182", textTransform: "uppercase", marginBottom: 8 }}>Description</h4>
+                  <p style={{ fontSize: 13, color: "#030213", lineHeight: 1.6 }}>{viewingJob.description}</p>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", borderTop: "1px solid #e0e0e0", paddingTop: 16 }}>
+                {viewingJob.status !== "Active" && (
+                  <button onClick={() => { handleJobAction(viewingJob.id, "Active"); setViewingJob(null); }} style={{ ...S.btn(), background: "#0a66c2", color: "#fff" }}>✓ Approve</button>
+                )}
+                {viewingJob.status !== "Rejected" && (
+                  <button onClick={() => { handleJobAction(viewingJob.id, "Rejected"); setViewingJob(null); }} style={{ ...S.btn(), background: "transparent", border: "2px solid #ef4444", color: "#ef4444" }}>✗ Reject</button>
+                )}
+                {viewingJob.status !== "Closed" && (
+                  <button onClick={() => { handleJobAction(viewingJob.id, "Closed"); setViewingJob(null); }} style={{ ...S.btn(), background: "transparent", border: "1px solid #717182", color: "#717182" }}>Close</button>
+                )}
+                <button onClick={() => { handleDeleteJob(viewingJob.id, viewingJob.title); setViewingJob(null); }} style={{ ...S.btn(), background: "#ef4444", color: "#fff" }}>🗑 Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ═══ OVERVIEW ═══ */}
         {section === "overview" && (
           <>
@@ -239,63 +421,96 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                 <div style={{ marginBottom: 32 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                     <div>
-                      <h1 style={{ fontSize: 28, fontWeight: 700, color: "#030213", margin: 0 }}>Good morning, Admin 👋</h1>
-                      <p style={{ fontSize: 13, color: "#717182", margin: "6px 0 0 0" }}>Here's what's happening on Interndesk today - Fri, {new Date().getDate()} Oct 2026</p>
+                      <h1 style={{ fontSize: 28, fontWeight: 700, color: "#030213", margin: 0 }}>{getGreeting()}, {firstName} 👋</h1>
+                      <p style={{ fontSize: 13, color: "#717182", margin: "6px 0 0 0" }}>Here's what's happening on Interndesk today – {new Date().toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}</p>
                     </div>
                     <div style={{ display: "flex", gap: 12 }}>
-                      <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>↓ Export report</button>
-                      <button style={{ ...S.btn(), background: "#0a66c2", color: "#ffffff" }}>✓ Review {stats?.stats?.pendingReview || 0} pending</button>
+                      <button onClick={() => setSection("jobs")} style={{ ...S.btn(), background: "#0a66c2", color: "#ffffff" }}>✓ Review {stats?.stats?.pendingReview || 0} pending</button>
                     </div>
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
                   <div style={S.statCard}>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalStudents?.toLocaleString()}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalStudents?.toLocaleString() || 0}</div>
                     <div style={{ fontSize: 12, color: "#717182", marginTop: 4 }}>Total Students</div>
-                    <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>+{stats?.stats?.newStudents} last 30 days</div>
+                    <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>+{stats?.stats?.newStudents || 0} last 30 days</div>
                   </div>
                   <div style={S.statCard}>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalCompanies?.toLocaleString()}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalCompanies?.toLocaleString() || 0}</div>
                     <div style={{ fontSize: 12, color: "#717182", marginTop: 4 }}>Companies</div>
-                    <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>+{stats?.stats?.newCompanies} last 30 days</div>
+                    <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>+{stats?.stats?.newCompanies || 0} last 30 days</div>
                   </div>
                   <div style={S.statCard}>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalJobs?.toLocaleString()}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalJobs?.toLocaleString() || 0}</div>
                     <div style={{ fontSize: 12, color: "#717182", marginTop: 4 }}>Internships Posted</div>
-                    <div style={{ fontSize: 11, color: "#fbbf24", marginTop: 4 }}>{stats?.stats?.pendingReview} in review</div>
+                    <div style={{ fontSize: 11, color: "#fbbf24", marginTop: 4 }}>{stats?.stats?.pendingReview || 0} in review</div>
                   </div>
                   <div style={S.statCard}>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalApplications?.toLocaleString()}</div>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalApplications?.toLocaleString() || 0}</div>
                     <div style={{ fontSize: 12, color: "#717182", marginTop: 4 }}>Applications</div>
-                    <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>+1,584 last 30 days</div>
+                    <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>+{stats?.stats?.newApplications || 0} last 30 days</div>
                   </div>
                 </div>
 
+                {/* Charts row */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
+                  {/* Sign-ups chart (bar chart using divs) */}
                   <div style={S.card}>
                     <h3 style={{ fontSize: 16, fontWeight: 700, color: "#030213", marginBottom: 4 }}>New sign-ups</h3>
-                    <p style={{ fontSize: 12, color: "#717182", marginBottom: 16 }}>Students vs companies - last 6 months</p>
-                    <div style={{ height: 160, background: "#f5f5f7", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#717182", fontSize: 12 }}>[Chart Visualization]</div>
+                    <p style={{ fontSize: 12, color: "#717182", marginBottom: 16 }}>Students vs companies – last 6 months</p>
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: 12, height: 140, padding: "0 8px" }}>
+                      {(() => {
+                        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                        const sTrend = stats?.trends?.students || [];
+                        const cTrend = stats?.trends?.companies || [];
+                        const bars = [];
+                        for (let i = 5; i >= 0; i--) {
+                          const d = new Date();
+                          d.setMonth(d.getMonth() - i);
+                          const m = d.getMonth() + 1;
+                          const y = d.getFullYear();
+                          const sCount = sTrend.find(t => Number(t.month) === m && Number(t.year) === y)?.count || 0;
+                          const cCount = cTrend.find(t => Number(t.month) === m && Number(t.year) === y)?.count || 0;
+                          bars.push({ month: months[m - 1], students: Number(sCount), companies: Number(cCount) });
+                        }
+                        const maxVal = Math.max(...bars.map(b => Math.max(b.students, b.companies)), 1);
+                        return bars.map((bar, i) => (
+                          <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                            <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 100 }}>
+                              <div style={{ width: 14, background: "#0a66c2", borderRadius: "3px 3px 0 0", height: `${Math.max((bar.students / maxVal) * 100, 4)}%`, transition: "height 0.3s" }} title={`Students: ${bar.students}`} />
+                              <div style={{ width: 14, background: "#22c55e", borderRadius: "3px 3px 0 0", height: `${Math.max((bar.companies / maxVal) * 100, 4)}%`, transition: "height 0.3s" }} title={`Companies: ${bar.companies}`} />
+                            </div>
+                            <span style={{ fontSize: 10, color: "#717182" }}>{bar.month}</span>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                    <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "#0a66c2" }} /><span style={{ fontSize: 10, color: "#717182" }}>Students</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "#22c55e" }} /><span style={{ fontSize: 10, color: "#717182" }}>Companies</span></div>
+                    </div>
                   </div>
+                  {/* Internship status breakdown */}
                   <div style={S.card}>
                     <h3 style={{ fontSize: 16, fontWeight: 700, color: "#030213", marginBottom: 4 }}>Internship status</h3>
-                    <p style={{ fontSize: 12, color: "#717182", marginBottom: 16 }}>Across all {stats?.stats?.totalJobs?.toLocaleString()} postings</p>
+                    <p style={{ fontSize: 12, color: "#717182", marginBottom: 16 }}>Across all {stats?.stats?.totalJobs?.toLocaleString() || 0} postings</p>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       <div style={{ textAlign: "center" }}>
                         <div style={{ fontSize: 32, fontWeight: 700, color: "#0a66c2" }}>{stats?.stats?.activeJobs || 0}</div>
                         <div style={{ fontSize: 12, color: "#717182" }}>Active</div>
                       </div>
                       <div>
-                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>🟢 Active</span><span style={{ fontWeight: 700 }}>{stats?.stats?.activeJobs}</span></div>
-                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>🟡 In Review</span><span style={{ fontWeight: 700 }}>{stats?.stats?.pendingReview}</span></div>
-                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>🔴 Rejected</span><span style={{ fontWeight: 700 }}>{stats?.stats?.rejectedJobs}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>⚪ Closed</span><span style={{ fontWeight: 700 }}>{stats?.stats?.closedJobs}</span></div>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>🟢 Active</span><span style={{ fontWeight: 700 }}>{stats?.stats?.activeJobs || 0}</span></div>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>🟡 In Review</span><span style={{ fontWeight: 700 }}>{stats?.stats?.pendingReview || 0}</span></div>
+                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>🔴 Rejected</span><span style={{ fontWeight: 700 }}>{stats?.stats?.rejectedJobs || 0}</span></div>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>⚪ Closed</span><span style={{ fontWeight: 700 }}>{stats?.stats?.closedJobs || 0}</span></div>
                       </div>
                     </div>
                   </div>
                 </div>
 
+                {/* Bottom row: Top jobs, recent companies, new students */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
                   <div style={S.card}>
                     <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", marginBottom: 14 }}>Top internships</h3>
@@ -304,10 +519,11 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                         <div style={{ fontWeight: 600, fontSize: 12, color: "#030213", marginBottom: 2 }}>{job.title}</div>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#717182" }}>
                           <span>{job.company}</span>
-                          <span style={{ color: "#0a66c2", fontWeight: 700 }}>{job.applicants}</span>
+                          <span style={{ color: "#0a66c2", fontWeight: 700 }}>{job.applicants} apps</span>
                         </div>
                       </div>
                     ))}
+                    {(stats?.topJobs || []).length === 0 && <p style={{ fontSize: 12, color: "#717182" }}>No internships yet</p>}
                   </div>
                   <div style={S.card}>
                     <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", marginBottom: 14 }}>Recent companies</h3>
@@ -315,21 +531,29 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                       <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: i < 3 ? "1px solid #e0e0e0" : "none" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                           <div style={{ width: 20, height: 20, borderRadius: 3, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 9 }}>{(c.name || "C").substring(0, 1)}</div>
-                          <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{c.name}</div>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{c.name}</div>
+                            <div style={{ fontSize: 10, color: "#717182" }}>{c.isVerified ? "✓ Verified" : "Pending"} · {formatDate(c.createdAt)}</div>
+                          </div>
                         </div>
                       </div>
                     ))}
+                    {(stats?.recentCompanies || []).length === 0 && <p style={{ fontSize: 12, color: "#717182" }}>No companies yet</p>}
                   </div>
                   <div style={S.card}>
                     <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", marginBottom: 14 }}>New students</h3>
                     {(stats?.recentStudents || []).slice(0, 4).map((s, i) => (
                       <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: i < 3 ? "1px solid #e0e0e0" : "none" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <div style={{ width: 20, height: 20, borderRadius: 3, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 9 }}>{(s.firstName || "S")[0].toUpperCase()}</div>
-                          <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{s.firstName || s.name}</div>
+                          <div style={{ width: 20, height: 20, borderRadius: 3, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 9 }}>{(s.firstName || s.name || "S")[0].toUpperCase()}</div>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{s.firstName || s.name}</div>
+                            <div style={{ fontSize: 10, color: "#717182" }}>{s.email} · {formatDate(s.createdAt)}</div>
+                          </div>
                         </div>
                       </div>
                     ))}
+                    {(stats?.recentStudents || []).length === 0 && <p style={{ fontSize: 12, color: "#717182" }}>No students yet</p>}
                   </div>
                 </div>
               </>
@@ -344,64 +568,71 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
                 <div>
                   <h1 style={{ fontSize: 28, fontWeight: 700, color: "#030213", margin: 0 }}>All Internships</h1>
-                  <p style={{ fontSize: 13, color: "#717182", margin: "6px 0 0 0" }}>Every internship posted on the platform</p>
+                  <p style={{ fontSize: 13, color: "#717182", margin: "6px 0 0 0" }}>Every internship posted on the platform ({allInternshipsTotal} total)</p>
                 </div>
-                <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>↓ Export CSV</button>
               </div>
               <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center" }}>
-                <input style={{ ...S.input, flex: 1, maxWidth: 400 }} placeholder="Search internships or companies..." value={jobSearch} onChange={e => { setJobSearch(e.target.value); setJobPage(1); }} />
-                <button style={{ ...S.btn(), background: "#0a66c2", color: "#fff" }}>All</button>
-                <button onClick={() => { setJobFilter("Active"); setJobPage(1); }} style={{ ...S.btn(), background: jobFilter === "Active" ? "#0a66c2" : "#ffffff", color: jobFilter === "Active" ? "#fff" : "#0a66c2", border: "1px solid #0a66c2" }}>Active</button>
-                <button onClick={() => { setJobFilter("Review"); setJobPage(1); }} style={{ ...S.btn(), background: jobFilter === "Review" ? "#0a66c2" : "#ffffff", color: jobFilter === "Review" ? "#fff" : "#0a66c2", border: "1px solid #0a66c2" }}>In Review</button>
-                <button onClick={() => { setJobFilter("Rejected"); setJobPage(1); }} style={{ ...S.btn(), background: jobFilter === "Rejected" ? "#0a66c2" : "#ffffff", color: jobFilter === "Rejected" ? "#fff" : "#0a66c2", border: "1px solid #0a66c2" }}>Rejected</button>
-                <button onClick={() => { setJobFilter("Closed"); setJobPage(1); }} style={{ ...S.btn(), background: jobFilter === "Closed" ? "#0a66c2" : "#ffffff", color: jobFilter === "Closed" ? "#fff" : "#0a66c2", border: "1px solid #0a66c2" }}>Closed</button>
+                <input style={{ ...S.input, flex: 1, maxWidth: 400 }} placeholder="Search internships or companies..." value={internshipSearch} onChange={e => { setInternshipSearch(e.target.value); setInternshipPage(1); }} />
+                {["all", "Active", "Review", "Rejected", "Closed"].map(f => (
+                  <button key={f} onClick={() => { setInternshipFilter(f); setInternshipPage(1); }} style={{ ...S.btn(), background: internshipFilter === f ? "#0a66c2" : "#ffffff", color: internshipFilter === f ? "#fff" : "#0a66c2", border: "1px solid #0a66c2" }}>
+                    {f === "all" ? "All" : f === "Review" ? "In Review" : f}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {jobsLoading ? <div style={{ textAlign: "center", padding: 40 }}>Loading...</div> : (
-              <div style={S.card}>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>INTERNSHIP</th>
-                      <th style={S.th}>CATEGORY</th>
-                      <th style={S.th}>LOCATION</th>
-                      <th style={S.th}>APPLICANTS</th>
-                      <th style={S.th}>STATUS</th>
-                      <th style={S.th}>POSTED</th>
-                      <th style={S.th}>ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {jobs.map(job => (
-                      <tr key={job.id}>
-                        <td style={S.td}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 32, height: 32, borderRadius: 4, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>{(job.company || "CO").substring(0, 1)}</div>
-                            <div>
-                              <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{job.title}</div>
-                              <div style={{ fontSize: 11, color: "#717182" }}>{job.company}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ ...S.td, color: "#0a66c2", fontWeight: 600 }}>{job.category}</td>
-                        <td style={S.td}>{job.location || "Remote"}</td>
-                        <td style={S.td}>{job.applicants || 0}</td>
-                        <td style={S.td}>
-                          <span style={{ padding: "4px 10px", borderRadius: 4, fontSize: 11, fontWeight: 600, background: job.status === "Active" ? "#e8f5e9" : job.status === "Review" ? "#fff3cd" : "#ffebee", color: job.status === "Active" ? "#22c55e" : job.status === "Review" ? "#fbbf24" : "#ef4444" }}>
-                            {job.status}
-                          </span>
-                        </td>
-                        <td style={S.td}>{new Date(job.createdAt).toLocaleDateString()}</td>
-                        <td style={S.td}>
-                          <button style={{ ...S.btn("sm"), background: "transparent", border: "1px solid #0a66c2", color: "#0a66c2", marginRight: 6 }}>View</button>
-                          <button style={{ ...S.btn("sm"), background: "transparent", border: "1px solid #717182", color: "#717182" }}>Close</button>
-                        </td>
+            {internshipsLoading ? <div style={{ textAlign: "center", padding: 40 }}>Loading...</div> : (
+              <>
+                <div style={S.card}>
+                  <table style={S.table}>
+                    <thead>
+                      <tr>
+                        <th style={S.th}>INTERNSHIP</th>
+                        <th style={S.th}>CATEGORY</th>
+                        <th style={S.th}>LOCATION</th>
+                        <th style={S.th}>APPLICANTS</th>
+                        <th style={S.th}>STATUS</th>
+                        <th style={S.th}>POSTED</th>
+                        <th style={S.th}>ACTIONS</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {allInternships.length === 0 ? (
+                        <tr><td colSpan="7" style={{ ...S.td, textAlign: "center", color: "#717182" }}>No internships found</td></tr>
+                      ) : allInternships.map(job => (
+                        <tr key={job.id}>
+                          <td style={S.td}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ width: 32, height: 32, borderRadius: 4, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 12 }}>{(job.company || "CO").substring(0, 1)}</div>
+                              <div>
+                                <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{job.title}</div>
+                                <div style={{ fontSize: 11, color: "#717182" }}>{job.company}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ ...S.td, color: "#0a66c2", fontWeight: 600 }}>{job.category}</td>
+                          <td style={S.td}>{job.location || "Remote"}</td>
+                          <td style={S.td}>{job.applicants || 0}</td>
+                          <td style={S.td}><StatusBadge status={job.status} /></td>
+                          <td style={S.td}>{formatDate(job.createdAt)}</td>
+                          <td style={S.td}>
+                            <div style={{ display: "flex", gap: 4 }}>
+                              <button onClick={() => setViewingJob(job)} style={{ ...S.btn("sm"), background: "transparent", border: "1px solid #0a66c2", color: "#0a66c2" }}>View</button>
+                              {job.status !== "Closed" && (
+                                <button onClick={() => handleJobAction(job.id, "Closed")} disabled={actionLoading === job.id} style={{ ...S.btn("sm"), background: "transparent", border: "1px solid #717182", color: "#717182" }}>Close</button>
+                              )}
+                              <button onClick={() => handleDeleteJob(job.id, job.title)} disabled={actionLoading === job.id} style={{ ...S.btn("sm"), background: "transparent", border: "1px solid #ef4444", color: "#ef4444" }}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination current={internshipPage} total={totalInternshipPages} onChange={setInternshipPage} />
+              </>
             )}
           </>
         )}
@@ -415,66 +646,75 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                   <h1 style={{ fontSize: 28, fontWeight: 700, color: "#030213", margin: 0 }}>Job Reviews</h1>
                   <p style={{ fontSize: 13, color: "#717182", margin: "6px 0 0 0" }}>Approve or reject internships before students can see them</p>
                 </div>
-                <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>Bulk approve</button>
               </div>
               <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", borderBottom: "1px solid #e0e0e0", paddingBottom: 16 }}>
-                <button onClick={() => { setJobFilter("Review"); setJobPage(1); }} style={{ fontSize: 13, fontWeight: jobFilter === "Review" ? 700 : 500, color: jobFilter === "Review" ? "#0a66c2" : "#717182", border: "none", background: "none", cursor: "pointer", paddingBottom: 4, borderBottom: jobFilter === "Review" ? "3px solid #0a66c2" : "none" }}>
-                  Pending review <span style={{ background: "#ef4444", color: "#fff", borderRadius: 10, padding: "2px 8px", marginLeft: 6, fontSize: 11, fontWeight: 700 }}>{stats?.stats?.pendingReview || 0}</span>
-                </button>
-                <button onClick={() => { setJobFilter("Active"); setJobPage(1); }} style={{ fontSize: 13, fontWeight: jobFilter === "Active" ? 700 : 500, color: jobFilter === "Active" ? "#0a66c2" : "#717182", border: "none", background: "none", cursor: "pointer", paddingBottom: 4, borderBottom: jobFilter === "Active" ? "3px solid #0a66c2" : "none" }}>
-                  Active <span style={{ color: "#030213", fontWeight: 700, marginLeft: 6 }}>{stats?.stats?.activeJobs || 0}</span>
-                </button>
-                <button onClick={() => { setJobFilter("Rejected"); setJobPage(1); }} style={{ fontSize: 13, fontWeight: jobFilter === "Rejected" ? 700 : 500, color: jobFilter === "Rejected" ? "#0a66c2" : "#717182", border: "none", background: "none", cursor: "pointer", paddingBottom: 4, borderBottom: jobFilter === "Rejected" ? "3px solid #0a66c2" : "none" }}>
-                  Rejected <span style={{ color: "#030213", fontWeight: 700, marginLeft: 6 }}>{stats?.stats?.rejectedJobs || 0}</span>
-                </button>
-                <button onClick={() => { setJobFilter("Closed"); setJobPage(1); }} style={{ fontSize: 13, fontWeight: jobFilter === "Closed" ? 700 : 500, color: jobFilter === "Closed" ? "#0a66c2" : "#717182", border: "none", background: "none", cursor: "pointer", paddingBottom: 4, borderBottom: jobFilter === "Closed" ? "3px solid #0a66c2" : "none" }}>
-                  Closed <span style={{ color: "#030213", fontWeight: 700, marginLeft: 6 }}>{stats?.stats?.closedJobs || 0}</span>
-                </button>
-                <button onClick={() => { setJobFilter("all"); setJobPage(1); }} style={{ fontSize: 13, fontWeight: jobFilter === "all" ? 700 : 500, color: jobFilter === "all" ? "#0a66c2" : "#717182", border: "none", background: "none", cursor: "pointer", paddingBottom: 4, borderBottom: jobFilter === "all" ? "3px solid #0a66c2" : "none" }}>
-                  All <span style={{ color: "#030213", fontWeight: 700, marginLeft: 6 }}>{jobsTotal}</span>
-                </button>
+                {[
+                  { label: "Pending review", value: "Review", count: stats?.stats?.pendingReview, countColor: "#ef4444" },
+                  { label: "Active", value: "Active", count: stats?.stats?.activeJobs },
+                  { label: "Rejected", value: "Rejected", count: stats?.stats?.rejectedJobs },
+                  { label: "Closed", value: "Closed", count: stats?.stats?.closedJobs },
+                  { label: "All", value: "all", count: jobsTotal },
+                ].map(tab => (
+                  <button key={tab.value} onClick={() => { setJobFilter(tab.value); setJobPage(1); }} style={{ fontSize: 13, fontWeight: jobFilter === tab.value ? 700 : 500, color: jobFilter === tab.value ? "#0a66c2" : "#717182", border: "none", background: "none", cursor: "pointer", paddingBottom: 4, borderBottom: jobFilter === tab.value ? "3px solid #0a66c2" : "none" }}>
+                    {tab.label}
+                    {tab.countColor ? (
+                      <span style={{ background: tab.countColor, color: "#fff", borderRadius: 10, padding: "2px 8px", marginLeft: 6, fontSize: 11, fontWeight: 700 }}>{tab.count || 0}</span>
+                    ) : (
+                      <span style={{ color: "#030213", fontWeight: 700, marginLeft: 6 }}>{tab.count || 0}</span>
+                    )}
+                  </button>
+                ))}
               </div>
               <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
                 <input style={{ ...S.input, flex: 1, maxWidth: 400 }} placeholder="Search by title or company..." value={jobSearch} onChange={e => { setJobSearch(e.target.value); setJobPage(1); }} />
-                <button style={{ ...S.btn(), background: "#0a66c2", color: "#fff" }}>All categories</button>
-                <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>Newest first</button>
               </div>
             </div>
 
             {jobsLoading ? <div style={{ textAlign: "center", padding: 40 }}>Loading...</div> : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {jobs.map(job => (
-                  <div key={job.id} style={S.card}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flex: 1 }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 6, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{(job.company || "CO").substring(0, 1)}</div>
-                        <div style={{ flex: 1 }}>
-                          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", margin: 0 }}>{job.title}</h3>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2 }}>
-                            <span style={{ fontSize: 11, color: "#717182" }}>{job.company}</span>
-                            <span style={{ fontSize: 11, background: "rgba(10, 102, 194, 0.1)", color: "#0a66c2", padding: "2px 8px", borderRadius: 4, fontWeight: 600 }}>{job.category}</span>
+              <>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {jobs.length === 0 ? (
+                    <div style={{ ...S.card, textAlign: "center", padding: 40 }}>
+                      <p style={{ fontSize: 14, color: "#717182" }}>No jobs match this filter</p>
+                    </div>
+                  ) : jobs.map(job => (
+                    <div key={job.id} style={S.card}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flex: 1 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: 6, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{(job.company || "CO").substring(0, 1)}</div>
+                          <div style={{ flex: 1 }}>
+                            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", margin: 0 }}>{job.title}</h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2 }}>
+                              <span style={{ fontSize: 11, color: "#717182" }}>{job.company}</span>
+                              <span style={{ fontSize: 11, background: "rgba(10, 102, 194, 0.1)", color: "#0a66c2", padding: "2px 8px", borderRadius: 4, fontWeight: 600 }}>{job.category}</span>
+                              <StatusBadge status={job.status} />
+                            </div>
                           </div>
                         </div>
+                        <span style={{ fontSize: 11, color: "#717182", fontWeight: 500, whiteSpace: "nowrap" }}>{formatDate(job.createdAt)}</span>
                       </div>
-                      <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>Awaiting review · 2h ago</span>
+                      <div style={{ display: "flex", gap: 24, marginBottom: 12, fontSize: 12, color: "#717182" }}>
+                        <div><span style={{ color: "#030213", fontWeight: 600 }}>Stipend</span><div>{job.stipend || "Unpaid"}</div></div>
+                        <div><span style={{ color: "#030213", fontWeight: 600 }}>Location</span><div>{job.location || "Remote"}</div></div>
+                        <div><span style={{ color: "#030213", fontWeight: 600 }}>Openings</span><div>{job.openings || 1}</div></div>
+                        <div><span style={{ color: "#030213", fontWeight: 600 }}>Duration</span><div>{job.duration || "—"}</div></div>
+                        <div><span style={{ color: "#030213", fontWeight: 600 }}>Applicants</span><div>{job.applicants || 0}</div></div>
+                      </div>
+                      {job.description && <p style={{ fontSize: 12, color: "#717182", lineHeight: 1.5, marginBottom: 10 }}>{job.description.substring(0, 200)}{job.description.length > 200 ? "..." : ""}</p>}
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        <button onClick={() => setViewingJob(job)} style={{ ...S.btn("sm"), background: "transparent", border: "1px solid #717182", color: "#717182" }}>View details</button>
+                        {job.status !== "Active" && (
+                          <button onClick={() => handleJobAction(job.id, "Active")} disabled={actionLoading === job.id} style={{ ...S.btn(), background: "#0a66c2", color: "#fff" }}>Approve</button>
+                        )}
+                        {job.status !== "Rejected" && (
+                          <button onClick={() => handleJobAction(job.id, "Rejected")} disabled={actionLoading === job.id} style={{ ...S.btn(), background: "transparent", border: "2px solid #ef4444", color: "#ef4444" }}>Reject</button>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ display: "flex", gap: 24, marginBottom: 12, fontSize: 12, color: "#717182" }}>
-                      <div><span style={{ color: "#030213", fontWeight: 600 }}>Stipend</span><div>₹{job.stipend}</div></div>
-                      <div><span style={{ color: "#030213", fontWeight: 600 }}>Location</span><div>{job.location || "Remote"}</div></div>
-                      <div><span style={{ color: "#030213", fontWeight: 600 }}>Openings</span><div>{job.openings}</div></div>
-                      <div><span style={{ color: "#030213", fontWeight: 600 }}>Duration</span><div>3 months</div></div>
-                    </div>
-                    <p style={{ fontSize: 12, color: "#717182", lineHeight: 1.5, marginBottom: 10 }}>{job.description || "Work with our team..."}</p>
-                    <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-                      {["React", "JavaScript", "Node.js"].map(tag => <span key={tag} style={{ fontSize: 10, background: "#f0f0f0", color: "#717182", padding: "3px 8px", borderRadius: 4 }}>{tag}</span>)}
-                    </div>
-                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                      <button onClick={() => handleJobAction(job.id, "Active")} disabled={actionLoading === job.id} style={{ ...S.btn(), background: "#0a66c2", color: "#fff" }}>Approve</button>
-                      <button onClick={() => handleJobAction(job.id, "Rejected")} disabled={actionLoading === job.id} style={{ ...S.btn(), background: "transparent", border: "2px solid #ef4444", color: "#ef4444" }}>Reject</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+                <Pagination current={jobPage} total={totalJobPages} onChange={setJobPage} />
+              </>
             )}
           </>
         )}
@@ -488,79 +728,90 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                   <h1 style={{ fontSize: 28, fontWeight: 700, color: "#030213", margin: 0 }}>Companies</h1>
                   <p style={{ fontSize: 13, color: "#717182", margin: "6px 0 0 0" }}>Review and verify employer accounts</p>
                 </div>
-                <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>↓ Export CSV</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
                 <div style={S.statCard}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>436</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalCompanies || companiesTotal}</div>
                   <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>Total companies</div>
                 </div>
                 <div style={S.statCard}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#22c55e" }}>371</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#22c55e" }}>{stats?.stats?.verifiedCompanies || 0}</div>
                   <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>Verified</div>
                 </div>
                 <div style={S.statCard}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#f59e0b" }}>65</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#f59e0b" }}>{stats?.stats?.unverifiedCompanies || 0}</div>
                   <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>Awaiting verification</div>
                 </div>
                 <div style={S.statCard}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>+28</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>+{stats?.stats?.newCompanies || 0}</div>
                   <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>New · 30 days</div>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
                 <input style={{ ...S.input, flex: 1, maxWidth: 400 }} placeholder="Search by company or recruiter email..." value={companySearch} onChange={e => { setCompanySearch(e.target.value); setCompanyPage(1); }} />
-                <button style={{ ...S.btn(), background: "#0a66c2", color: "#fff" }}>All</button>
-                <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>Verified</button>
-                <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>Unverified</button>
+                {["all", "verified", "unverified"].map(f => (
+                  <button key={f} onClick={() => { setCompanyFilter(f); setCompanyPage(1); }} style={{ ...S.btn(), background: companyFilter === f ? "#0a66c2" : "#ffffff", color: companyFilter === f ? "#fff" : "#0a66c2", border: "1px solid #0a66c2" }}>
+                    {f === "all" ? "All" : f === "verified" ? "Verified" : "Unverified"}
+                  </button>
+                ))}
               </div>
             </div>
 
             {companiesLoading ? <div style={{ textAlign: "center", padding: 40 }}>Loading...</div> : (
-              <div style={S.card}>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>COMPANY</th>
-                      <th style={S.th}>INDUSTRY</th>
-                      <th style={S.th}>LOCATION</th>
-                      <th style={S.th}>RECRUITER EMAIL</th>
-                      <th style={S.th}>OPEN ROLES</th>
-                      <th style={S.th}>STATUS</th>
-                      <th style={S.th}>ACTION</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {companies.map(c => (
-                      <tr key={c.id}>
-                        <td style={S.td}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 28, height: 28, borderRadius: 4, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 11 }}>{(c.name || "CO").substring(0, 1)}</div>
-                            <div>
-                              <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{c.name}</div>
-                              <div style={{ fontSize: 10, color: "#717182" }}>Joined 20 Sep 2028</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={S.td}>{c.industry}</td>
-                        <td style={S.td}>{c.location}</td>
-                        <td style={{ ...S.td, color: "#0a66c2", fontWeight: 500 }}>{c.recruiterEmail}</td>
-                        <td style={S.td}>{c.openPositionsCount}</td>
-                        <td style={S.td}>
-                          <span style={{ color: c.isVerified ? "#22c55e" : "#f59e0b", fontWeight: 600, fontSize: 12 }}>
-                            {c.isVerified ? "✓ Verified" : "⚠ Unverified"}
-                          </span>
-                        </td>
-                        <td style={S.td}>
-                          <button onClick={() => handleVerifyCompany(c.id, !c.isVerified)} disabled={actionLoading === c.id} style={{ ...S.btn("sm"), background: c.isVerified ? "transparent" : "#0a66c2", color: c.isVerified ? "#717182" : "#fff", border: c.isVerified ? "1px solid #717182" : "none" }}>
-                            {c.isVerified ? "Revoke" : "Verify"}
-                          </button>
-                        </td>
+              <>
+                <div style={S.card}>
+                  <table style={S.table}>
+                    <thead>
+                      <tr>
+                        <th style={S.th}>COMPANY</th>
+                        <th style={S.th}>INDUSTRY</th>
+                        <th style={S.th}>LOCATION</th>
+                        <th style={S.th}>RECRUITER EMAIL</th>
+                        <th style={S.th}>OPEN ROLES</th>
+                        <th style={S.th}>STATUS</th>
+                        <th style={S.th}>ACTION</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {companies.length === 0 ? (
+                        <tr><td colSpan="7" style={{ ...S.td, textAlign: "center", color: "#717182" }}>No companies found</td></tr>
+                      ) : companies.map(c => (
+                        <tr key={c.id}>
+                          <td style={S.td}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ width: 28, height: 28, borderRadius: 4, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 11 }}>{(c.name || "CO").substring(0, 1)}</div>
+                              <div>
+                                <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{c.name}</div>
+                                <div style={{ fontSize: 10, color: "#717182" }}>Joined {formatDate(c.createdAt)}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={S.td}>{c.industry || "—"}</td>
+                          <td style={S.td}>{c.location || "—"}</td>
+                          <td style={{ ...S.td, color: "#0a66c2", fontWeight: 500 }}>{c.recruiterEmail || "—"}</td>
+                          <td style={S.td}>{c.openPositionsCount || 0}</td>
+                          <td style={S.td}>
+                            <span style={{ color: c.isVerified ? "#22c55e" : "#f59e0b", fontWeight: 600, fontSize: 12 }}>
+                              {c.isVerified ? "✓ Verified" : "⚠ Unverified"}
+                            </span>
+                          </td>
+                          <td style={S.td}>
+                            <div style={{ display: "flex", gap: 4 }}>
+                              <button onClick={() => handleVerifyCompany(c.id, !c.isVerified)} disabled={actionLoading === c.id} style={{ ...S.btn("sm"), background: c.isVerified ? "transparent" : "#0a66c2", color: c.isVerified ? "#717182" : "#fff", border: c.isVerified ? "1px solid #717182" : "none" }}>
+                                {c.isVerified ? "Revoke" : "Verify"}
+                              </button>
+                              <button onClick={() => handleDeleteCompany(c.id, c.name)} disabled={actionLoading === c.id} style={{ ...S.btn("sm"), background: "transparent", border: "1px solid #ef4444", color: "#ef4444" }}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination current={companyPage} total={totalCompanyPages} onChange={setCompanyPage} />
+              </>
             )}
           </>
         )}
@@ -574,77 +825,78 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                   <h1 style={{ fontSize: 28, fontWeight: 700, color: "#030213", margin: 0 }}>Students</h1>
                   <p style={{ fontSize: 13, color: "#717182", margin: "6px 0 0 0" }}>All registered students on Interndesk</p>
                 </div>
-                <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>↓ Export CSV</button>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 20 }}>
                 <div style={S.statCard}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>8,452</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalStudents?.toLocaleString() || studentsTotal}</div>
                   <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>Total students</div>
                 </div>
                 <div style={S.statCard}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#22c55e" }}>+312</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#22c55e" }}>+{stats?.stats?.newStudents || 0}</div>
                   <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>New · 30 days</div>
                 </div>
                 <div style={S.statCard}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>6,108</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>{stats?.stats?.profilesCompleted || 0}</div>
                   <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>Profiles completed</div>
                 </div>
                 <div style={S.statCard}>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>2.3</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>{stats?.stats?.avgApplicationsPerStudent || 0}</div>
                   <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>Avg. applications / student</div>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
                 <input style={{ ...S.input, flex: 1, maxWidth: 400 }} placeholder="Search by name or email..." value={studentSearch} onChange={e => { setStudentSearch(e.target.value); setStudentPage(1); }} />
-                <button style={{ ...S.btn(), background: "#0a66c2", color: "#fff" }}>All</button>
-                <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>New this week</button>
-                <button style={{ ...S.btn(), background: "#ffffff", border: "1px solid #0a66c2", color: "#0a66c2" }}>Profile incomplete</button>
               </div>
             </div>
 
             {studentsLoading ? <div style={{ textAlign: "center", padding: 40 }}>Loading...</div> : (
-              <div style={S.card}>
-                <table style={S.table}>
-                  <thead>
-                    <tr>
-                      <th style={S.th}>STUDENT</th>
-                      <th style={S.th}>COLLEGE</th>
-                      <th style={S.th}>COURSE</th>
-                      <th style={S.th}>APPLICATIONS</th>
-                      <th style={S.th}>PROFILE</th>
-                      <th style={S.th}>JOINED</th>
-                      <th style={S.th}>ACTIONS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {students.map(s => (
-                      <tr key={s.id}>
-                        <td style={S.td}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 28, height: 28, borderRadius: 4, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 11 }}>{(s.firstName || "S")[0].toUpperCase()}</div>
-                            <div>
-                              <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{s.firstName || s.name}</div>
-                              <div style={{ fontSize: 10, color: "#717182" }}>{s.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={S.td}>—</td>
-                        <td style={S.td}>—</td>
-                        <td style={S.td}>8</td>
-                        <td style={S.td}>
-                          <div style={{ width: 100, height: 6, background: "#e0e0e0", borderRadius: 3, overflow: "hidden" }}>
-                            <div style={{ width: "100%", height: "100%", background: "#0a66c2" }} />
-                          </div>
-                        </td>
-                        <td style={S.td}>Today</td>
-                        <td style={S.td}>
-                          <button style={{ ...S.btn("sm"), background: "transparent", border: "1px solid #0a66c2", color: "#0a66c2" }}>View profile</button>
-                        </td>
+              <>
+                <div style={S.card}>
+                  <table style={S.table}>
+                    <thead>
+                      <tr>
+                        <th style={S.th}>STUDENT</th>
+                        <th style={S.th}>EMAIL</th>
+                        <th style={S.th}>APPLICATIONS</th>
+                        <th style={S.th}>PROFILE</th>
+                        <th style={S.th}>JOINED</th>
+                        <th style={S.th}>ACTIONS</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {students.length === 0 ? (
+                        <tr><td colSpan="6" style={{ ...S.td, textAlign: "center", color: "#717182" }}>No students found</td></tr>
+                      ) : students.map(s => (
+                        <tr key={s.id}>
+                          <td style={S.td}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ width: 28, height: 28, borderRadius: 4, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 11 }}>{(s.firstName || s.name || "S")[0].toUpperCase()}</div>
+                              <div>
+                                <div style={{ fontWeight: 600, fontSize: 12, color: "#030213" }}>{s.firstName && s.lastName ? `${s.firstName} ${s.lastName}` : s.name || s.firstName || "Student"}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ ...S.td, fontSize: 12, color: "#717182" }}>{s.email}</td>
+                          <td style={S.td}>{s.applicationCount || 0}</td>
+                          <td style={S.td}>
+                            <div style={{ width: 100, height: 6, background: "#e0e0e0", borderRadius: 3, overflow: "hidden" }}>
+                              <div style={{ width: s.profileComplete ? "100%" : "40%", height: "100%", background: s.profileComplete ? "#22c55e" : "#f59e0b" }} />
+                            </div>
+                            <span style={{ fontSize: 10, color: "#717182" }}>{s.profileComplete ? "Complete" : "Incomplete"}</span>
+                          </td>
+                          <td style={S.td}>{formatDate(s.createdAt)}</td>
+                          <td style={S.td}>
+                            <button onClick={() => handleDeleteStudent(s.id, s.firstName || s.name)} disabled={actionLoading === s.id} style={{ ...S.btn("sm"), background: "transparent", border: "1px solid #ef4444", color: "#ef4444" }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination current={studentPage} total={totalStudentPages} onChange={setStudentPage} />
+              </>
             )}
           </>
         )}
@@ -698,19 +950,19 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {notifications.map((notif, i) => (
-                  <div key={notif.id || i} style={{ ...S.card, display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between", paddingLeft: 16 }}>
+                  <div key={notif.id || i} style={{ ...S.card, display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between", paddingLeft: 16, opacity: notif.isRead ? 0.7 : 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
                       <div style={{ fontSize: 20, opacity: 0.7 }}>
-                        {notif.type === "job" ? "📄" : notif.type === "company" ? "🏢" : notif.type === "student" ? "👥" : "📢"}
+                        {notif.category === "jobs" ? "📄" : notif.category === "companies" ? "🏢" : notif.category === "students" ? "👥" : "📢"}
                       </div>
                       <div style={{ flex: 1 }}>
                         <h4 style={{ fontSize: 13, fontWeight: 600, color: "#030213", margin: 0 }}>{notif.title || notif.message}</h4>
-                        <p style={{ fontSize: 12, color: "#717182", margin: "2px 0 0 0" }}>{notif.body || notif.details || ""}</p>
+                        <p style={{ fontSize: 12, color: "#717182", margin: "2px 0 0 0" }}>{notif.message || ""}</p>
                       </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
                       <span style={{ fontSize: 11, color: "#717182", whiteSpace: "nowrap" }}>
-                        {notif.createdAt ? new Date(notif.createdAt).toLocaleString() : "Recently"}
+                        {formatDate(notif.createdAt)}
                       </span>
                       <div style={{ width: 10, height: 10, borderRadius: "50%", background: notif.isRead ? "transparent" : "#0a66c2", flexShrink: 0 }} />
                     </div>
@@ -744,7 +996,6 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                   
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 20, paddingBottom: 20, borderBottom: "1px solid #e0e0e0" }}>
                     <div style={{ width: 60, height: 60, borderRadius: 8, background: "#0a66c2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 12 }}>{(settings.profile?.firstName || "A")[0]}</div>
-                    <button style={{ ...S.btn("sm"), background: "#ffffff", border: "2px solid #0a66c2", color: "#0a66c2" }}>Change photo</button>
                   </div>
 
                   <div style={{ marginBottom: 16 }}>

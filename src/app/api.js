@@ -271,6 +271,8 @@ export const api = {
   updateCompanyMember: async () => ({ success: true }),
   removeCompanyMember: async () => ({ success: true }),
 
+  companyAnalytics: async () => get('/companies/analytics'),
+
   // ── Applications ──────────────────────────────────────────
   applications: async () => get('/applications'),
 
@@ -402,20 +404,24 @@ export const api = {
   },
   adminUpdateJobStatus: async (id, status, reason) =>
     patch(`/admin/jobs/${id}/status`, { status, reason }),
+  adminDeleteJob: async (id) => del(`/admin/jobs/${id}`),
   adminCompanies: async (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return get(`/admin/companies${q ? '?' + q : ''}`);
   },
   adminVerifyCompany: async (id, isVerified) =>
     patch(`/admin/companies/${id}/verify`, { isVerified }),
+  adminDeleteCompany: async (id) => del(`/admin/companies/${id}`),
   adminStudents: async (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return get(`/admin/students${q ? '?' + q : ''}`);
   },
+  adminDeleteStudent: async (id) => del(`/admin/students/${id}`),
   adminNotifications: async (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return get(`/admin/notifications${q ? '?' + q : ''}`);
   },
+  adminMarkAllNotificationsRead: async () => post('/admin/notifications/mark-all-read', {}),
   adminSettings: async () => get('/admin/settings'),
   adminUpdateSettings: async (settings) => put('/admin/settings', settings),
   markAllNotificationsRead: async () => post('/notifications/mark-all-read', {})
