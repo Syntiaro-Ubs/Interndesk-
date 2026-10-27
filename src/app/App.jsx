@@ -485,6 +485,12 @@ function App() {
       {view === "details" && (
         <DetailsPage
           setView={setView}
+          onRequireSignup={() => {
+            const params = { mode: "signup", role: "student" };
+            setAuthParamsState(params);
+            setViewRaw("auth");
+            syncUrl("auth", portalSection, params, selectedInternship, selectedCompany);
+          }}
           internship={selectedInternship}
           userInfo={userInfo}
         />

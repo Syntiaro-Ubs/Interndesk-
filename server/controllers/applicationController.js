@@ -16,12 +16,21 @@ export const applyForInternship = async (req, res) => {
       course = 'B.Tech Computer Science'
     } = req.body;
 
+    const phoneNumber = String(phone || candidatePhone || '').replace(/[\s()-]/g, '');
+    if (!/^(?:\+91)?[6-9]\d{9}$/.test(phoneNumber)) {
+      return res.status(400).json({ error: 'Enter a valid 10-digit Indian mobile number, optionally with +91.' });
+    }
+    const authenticatedEmail = String(req.headers['x-user-email'] || '').toLowerCase().trim();
+    if (!authenticatedEmail) return res.status(401).json({ error: 'Sign in with a student account before applying.' });
+    const student = await User.findOne({ where: { email: authenticatedEmail, role: 'student' } });
+    if (!student) return res.status(401).json({ error: 'Sign in with a student account before applying.' });
+
     const job = await Internship.findByPk(id);
     if (!job) {
       return res.status(404).json({ error: 'Internship not found' });
     }
 
-    const email = (candidateEmail || req.headers['x-user-email'] || 'student@example.com').toLowerCase();
+    const email = authenticatedEmail;
 
     // Check if already applied
     const existingApp = await Application.findOne({
@@ -49,11 +58,11 @@ export const applyForInternship = async (req, res) => {
       studentName: candidateName || 'Student Applicant',
       name: candidateName || 'Student Applicant',
       candidateEmail: email,
-      candidatePhone: phone || candidatePhone || '+91 98765 43210',
-      phone: phone || candidatePhone || '+91 98765 43210',
+      candidatePhone: phoneNumber,
+      phone: phoneNumber,
       college,
       course,
-      score: 88,
+      score: null,
       resumeKey: resumeKey || 'resume.pdf',
       coverNote
     });
@@ -147,7 +156,7 @@ export const getCompanyApplications = async (req, res) => {
       applied: app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : 'Today',
       appliedAt: app.appliedAt,
       resumeKey: app.resumeKey || 'resume.pdf',
-      score: Number(app.score ?? 88)
+      score: app.score == null ? null : Number(app.score)
     }));
 
     return res.json(result);

@@ -34,6 +34,11 @@ function EasyApplyModal({
       toast.error("Please sign in with a student account before applying.");
       return;
     }
+    const normalizedPhone = phone.replace(/[\s()-]/g, "");
+    if (!/^(?:\+91)?[6-9]\d{9}$/.test(normalizedPhone)) {
+      toast.error("Enter a valid 10-digit Indian mobile number, optionally with +91.");
+      return;
+    }
     try {
       setSubmitting(true);
       let selectedResumeKey = resumeKey;
@@ -55,7 +60,7 @@ function EasyApplyModal({
         coverNote: "",
         candidateName: `${firstName} ${lastName}`.trim() || userInfo?.name || "Student Applicant",
         candidateEmail: candidateEmail || userInfo?.email || "student@example.com",
-        phone: phone || "+91 98765 43210",
+        phone: normalizedPhone,
         studentId: userInfo?.id
       });
       setIsSubmitted(true);
@@ -112,6 +117,10 @@ function EasyApplyModal({
     {
       type: "tel",
       required: true,
+      inputMode: "tel",
+      autoComplete: "tel",
+      pattern: "(?:\\+91[\\s-]?)?[6-9][0-9]{9}",
+      title: "Enter a valid 10-digit Indian mobile number, optionally with +91.",
       value: phone,
       onChange: (e) => setPhone(e.target.value),
       className: "w-full h-11 px-3.5 bg-white border border-[#e0dfdc] focus:border-[#0a66c2] focus:ring-1 focus:ring-[#0a66c2] rounded-xl text-sm outline-none transition-colors",

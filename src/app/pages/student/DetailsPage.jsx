@@ -4,7 +4,7 @@ import { api } from "../../api";
 import { CategoryBadge, ModeBadge } from "../../components/ui/Badges";
 import { EasyApplyModal } from "../../components/EasyApplyModal";
 
-export function DetailsPage({ setView, internship: selectedInternship, userInfo }) {
+export function DetailsPage({ setView, onRequireSignup, internship: selectedInternship, userInfo }) {
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [isApplied, setIsApplied] = useState(false);
   const [applicationError, setApplicationError] = useState("");
@@ -50,7 +50,7 @@ export function DetailsPage({ setView, internship: selectedInternship, userInfo 
                 {selectedInternship.category && <CategoryBadge category={selectedInternship.category} />}
               </div>
             </div>
-            {userInfo?.id && <button disabled={isApplied || selectedInternship.status === "Closed"} onClick={() => { setApplicationError(""); setShowApplyModal(true); }} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg disabled:opacity-60 cursor-pointer">{selectedInternship.status === "Closed" ? "Applications Closed" : isApplied ? "Applied" : "Apply"}</button>}
+            <button disabled={isApplied || selectedInternship.status === "Closed"} onClick={() => { setApplicationError(""); if (!userInfo?.id) { onRequireSignup?.(); return; } setShowApplyModal(true); }} className="px-5 py-2.5 bg-primary text-primary-foreground rounded-lg disabled:opacity-60 cursor-pointer">{selectedInternship.status === "Closed" ? "Applications Closed" : isApplied ? "Applied" : "Apply"}</button>
           </div>
           {applicationError && <p role="alert" className="mt-3 text-sm text-red-600">{applicationError}</p>}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
