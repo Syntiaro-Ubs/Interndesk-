@@ -79,20 +79,22 @@ function FilterPanel({
     }
   ), /* @__PURE__ */ React.createElement("span", { className: `text-sm leading-none transition-colors ${checked ? "text-primary font-semibold" : "text-foreground group-hover:text-primary"}` }, label));
 
+  const isIT = selCat.some((c) => c === "IT" || c === "Technical");
+  const isNonIT = selCat.some((c) => c === "NON IT" || c === "Non Technical");
   const availableDepts = departments && departments.length > 0
     ? departments
-    : selCat.includes("IT") && !selCat.includes("NON IT")
+    : isIT && !isNonIT
       ? DEFAULT_IT_DEPTS
-      : selCat.includes("NON IT") && !selCat.includes("IT")
+      : isNonIT && !isIT
         ? DEFAULT_NON_IT_DEPTS
         : [...new Set([...DEFAULT_IT_DEPTS, ...DEFAULT_NON_IT_DEPTS])];
 
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between pb-4 border-b border-border" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement(SlidersHorizontal, { className: "w-4 h-4 text-primary" }), /* @__PURE__ */ React.createElement("span", { className: "text-sm font-semibold text-foreground" }, "Filters"), activeCount > 0 && /* @__PURE__ */ React.createElement("span", { className: "min-w-[18px] h-[18px] bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center px-1" }, activeCount)), activeCount > 0 && /* @__PURE__ */ React.createElement("button", { onClick: onClear, className: "text-xs text-primary font-semibold hover:underline" }, "Clear all")), /* @__PURE__ */ React.createElement(Section, { title: "Category" }, (categories.length ? categories : ["IT", "NON IT"]).map((item) => /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between pb-4 border-b border-border" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement(SlidersHorizontal, { className: "w-4 h-4 text-primary" }), /* @__PURE__ */ React.createElement("span", { className: "text-sm font-semibold text-foreground" }, "Filters"), activeCount > 0 && /* @__PURE__ */ React.createElement("span", { className: "min-w-[18px] h-[18px] bg-primary text-primary-foreground rounded-full text-[10px] font-bold flex items-center justify-center px-1" }, activeCount)), activeCount > 0 && /* @__PURE__ */ React.createElement("button", { onClick: onClear, className: "text-xs text-primary font-semibold hover:underline" }, "Clear all")), /* @__PURE__ */ React.createElement(Section, { title: "Category" }, (categories.length ? categories : ["Technical", "Non Technical"]).map((item) => /* @__PURE__ */ React.createElement(
     CheckRow,
     {
       key: item,
-      label: item === "IT" ? "IT (Information Tech)" : "NON IT (Business & Mgmt)",
-      checked: selCat.includes(item),
+      label: (item === "IT" || item === "Technical") ? "Technical (IT & Tech)" : "Non Technical (Business & Mgmt)",
+      checked: selCat.includes(item) || (item === "Technical" && selCat.includes("IT")) || (item === "Non Technical" && selCat.includes("NON IT")),
       onChange: () => toggleArr(selCat, setSelCat, item)
     }
   ))), /* @__PURE__ */ React.createElement(Section, { title: "Work Mode" }, (workModes.length ? workModes : ["Remote", "Hybrid", "On-site"]).map((item) => /* @__PURE__ */ React.createElement(
@@ -231,7 +233,15 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
   ];
 
   const filtered = allJobs.filter((i) => {
-    if (selCat.length && !selCat.includes(i.category)) return false;
+    if (selCat.length) {
+      const matchCat = selCat.some((c) => {
+        if (c === i.category) return true;
+        if ((c === "IT" || c === "Technical") && (i.category === "IT" || i.category === "Technical")) return true;
+        if ((c === "NON IT" || c === "Non Technical") && (i.category === "NON IT" || i.category === "Non Technical")) return true;
+        return false;
+      });
+      if (!matchCat) return false;
+    }
     if (selDept.length && !selDept.includes(i.department)) return false;
     if (selMode.length && !selMode.includes(i.mode)) return false;
     if (selDuration.length && !selDuration.includes(i.duration)) return false;

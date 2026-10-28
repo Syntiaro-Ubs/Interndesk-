@@ -5,7 +5,8 @@ function ModeBadge({ mode }) {
   return /* @__PURE__ */ React.createElement("span", { className: `inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${s[mode]}` }, mode);
 }
 function CategoryBadge({ category }) {
-  return /* @__PURE__ */ React.createElement("span", { className: `inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${category === "IT" ? "bg-sky-50 text-sky-700" : "bg-violet-50 text-violet-700"}` }, category);
+  const isTech = category === "IT" || category === "Technical";
+  return /* @__PURE__ */ React.createElement("span", { className: `inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${isTech ? "bg-sky-50 text-sky-700" : "bg-violet-50 text-violet-700"}` }, category);
 }
 function StatusBadge({ status }) {
   const map = {
