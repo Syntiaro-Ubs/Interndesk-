@@ -13,6 +13,37 @@ export const PersonalInfoForm = () => {
         updatePersonal({ [name]: value });
     };
 
+    const handlePhoneChange = (e) => {
+        const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+        updatePersonal({ phone: digitsOnly });
+    };
+
+    const handlePhoneKeyDown = (e) => {
+        if (
+            ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) ||
+            ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x', 'z'].includes(e.key.toLowerCase()))
+        ) {
+            return;
+        }
+        if (!/^[0-9]$/.test(e.key)) {
+            e.preventDefault();
+            return;
+        }
+        const currentLength = (personal.phone || '').length;
+        const input = e.target;
+        const hasSelection = input.selectionStart !== input.selectionEnd;
+        if (currentLength >= 10 && !hasSelection) {
+            e.preventDefault();
+        }
+    };
+
+    const handlePhonePaste = (e) => {
+        e.preventDefault();
+        const pastedText = e.clipboardData ? e.clipboardData.getData('text') : '';
+        const digitsOnly = pastedText.replace(/\D/g, '').slice(0, 10);
+        updatePersonal({ phone: digitsOnly });
+    };
+
     const handlePhotoChange = (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
@@ -113,7 +144,19 @@ export const PersonalInfoForm = () => {
                 _jsxs("label", { htmlFor: "personal-phone", className: "block text-xs font-semibold text-slate-700 mb-1", children: ["Phone Number ", _jsx("span", { className: "text-rose-500", children: "*" })] }),
                 _jsxs("div", { className: "relative", children: [
                     _jsx(Phone, { className: "w-4 h-4 text-slate-400 absolute left-3 top-2.5" }),
-                    _jsx("input", { id: "personal-phone", type: "tel", name: "phone", value: personal.phone || '', onChange: handleChange, placeholder: "Your phone number", className: "w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-900 bg-white" })
+                    _jsx("input", {
+                        id: "personal-phone",
+                        type: "tel",
+                        inputMode: "numeric",
+                        maxLength: 10,
+                        name: "phone",
+                        value: personal.phone || '',
+                        onChange: handlePhoneChange,
+                        onKeyDown: handlePhoneKeyDown,
+                        onPaste: handlePhonePaste,
+                        placeholder: "10-digit phone number",
+                        className: "w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-slate-900 bg-white"
+                    })
                 ] })
             ] }),
             _jsxs("div", { className: "sm:col-span-2", children: [

@@ -139,100 +139,136 @@ function ManageInternships({
 
 function ApplicantResumeModal({ applicant, preview, loading, error, onClose, onMessage, onShortlist }) {
   if (!applicant) return null;
-  const isPdf = preview?.mimeType === "application/pdf" && preview?.dataUrl;
+  const streamUrl = `/api/applications/${applicant.id}/resume/stream`;
+  const previewSource = preview?.blobUrl || streamUrl;
+  const isPdf = preview && (preview.mimeType === "application/pdf" || (preview.fileName && preview.fileName.toLowerCase().endsWith(".pdf")));
 
-  return React.createElement("div", { 
-    className: "fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3 sm:p-6 backdrop-blur-xs",
-    onClick: (e) => { if (e.target === e.currentTarget) onClose(); }
-  },
-    React.createElement("section", { className: "bg-card border border-border rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in duration-200" },
-      React.createElement("header", { className: "flex items-center justify-between gap-4 px-6 py-4 border-b border-border bg-card flex-shrink-0" },
-        React.createElement("div", { className: "flex items-center gap-3 min-w-0" },
-          React.createElement("div", { className: "w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-base flex items-center justify-center flex-shrink-0" },
-            applicant.name ? applicant.name[0] : "A"
-          ),
-          React.createElement("div", { className: "min-w-0" },
-            React.createElement("h2", { className: "text-base font-semibold text-foreground truncate" }, applicant.name, " \u2014 Application Resume"),
-            React.createElement("p", { className: "text-xs text-muted-foreground mt-0.5 truncate" }, 
-              applicant.course || "Candidate", 
-              applicant.college ? ` \xB7 ${applicant.college}` : "",
-              applicant.internship ? ` \xB7 ${applicant.internship}` : ""
+  const handleOpenNewTab = () => {
+    if (previewSource) {
+      window.open(previewSource, "_blank");
+    }
+  };
+
+  return createPortal(
+    React.createElement("div", { 
+      className: "fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 p-3 sm:p-6 backdrop-blur-xs",
+      onClick: (e) => { if (e.target === e.currentTarget) onClose(); }
+    },
+      React.createElement("section", { className: "bg-card border border-border rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in duration-200" },
+        React.createElement("header", { className: "flex items-center justify-between gap-4 px-6 py-4 border-b border-border bg-card flex-shrink-0" },
+          React.createElement("div", { className: "flex items-center gap-3 min-w-0" },
+            React.createElement("div", { className: "w-10 h-10 rounded-full bg-primary/10 text-primary font-bold text-base flex items-center justify-center flex-shrink-0" },
+              applicant.name ? applicant.name[0] : "A"
+            ),
+            React.createElement("div", { className: "min-w-0" },
+              React.createElement("h2", { className: "text-base font-semibold text-foreground truncate" }, applicant.name, " \u2014 Application Resume"),
+              React.createElement("p", { className: "text-xs text-muted-foreground mt-0.5 truncate" }, 
+                applicant.course || "Candidate", 
+                applicant.college ? ` \xB7 ${applicant.college}` : "",
+                applicant.internship ? ` \xB7 ${applicant.internship}` : ""
+              )
             )
+          ),
+          React.createElement("div", { className: "flex items-center gap-2 flex-shrink-0" },
+            previewSource && React.createElement("button", {
+              type: "button",
+              onClick: handleOpenNewTab,
+              title: "Open resume in full window tab",
+              className: "flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+            }, React.createElement(ExternalLink, { className: "w-3.5 h-3.5" }), "Open in Tab"),
+            previewSource && React.createElement("a", { 
+              href: previewSource, 
+              download: preview?.fileName || `${applicant.name}_Resume.pdf`,
+              title: "Download resume file",
+              className: "flex items-center gap-1.5 px-3 py-1.5 border border-border text-foreground hover:border-primary hover:text-primary rounded-lg text-xs font-medium transition-colors"
+            }, React.createElement(Download, { className: "w-3.5 h-3.5" }), "Download"),
+            React.createElement("button", { 
+              type: "button",
+              onClick: onClose, 
+              className: "p-1.5 text-muted-foreground hover:text-foreground hover:bg-border/50 rounded-lg transition-colors cursor-pointer" 
+            }, React.createElement(X, { className: "w-5 h-5" }))
           )
         ),
-        React.createElement("div", { className: "flex items-center gap-2 flex-shrink-0" },
-          preview?.dataUrl && React.createElement("a", { 
-            href: preview.dataUrl, 
-            download: preview.fileName || `${applicant.name}_Resume.pdf`,
-            className: "flex items-center gap-1.5 px-3 py-1.5 border border-border text-foreground hover:border-primary hover:text-primary rounded-lg text-xs font-medium transition-colors"
-          }, React.createElement(Download, { className: "w-3.5 h-3.5" }), "Download"),
-          React.createElement("button", { 
-            type: "button",
-            onClick: onClose, 
-            className: "p-1.5 text-muted-foreground hover:text-foreground hover:bg-border/50 rounded-lg transition-colors cursor-pointer" 
-          }, React.createElement(X, { className: "w-5 h-5" }))
-        )
-      ),
-      React.createElement("div", { className: "flex-1 overflow-y-auto p-6 bg-background/50 flex flex-col" },
-        loading
-          ? React.createElement("div", { className: "py-16 text-center space-y-3 my-auto" },
-              React.createElement("div", { className: "w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" }),
-              React.createElement("p", { className: "text-sm text-muted-foreground" }, "Loading candidate resume\u2026")
-            )
-          : isPdf
-            ? React.createElement("iframe", { 
-                title: `${applicant.name} resume`, 
-                src: preview.dataUrl, 
-                className: "w-full flex-1 min-h-[65vh] border border-border rounded-xl bg-white shadow-xs" 
-              })
-            : preview?.dataUrl
-              ? React.createElement("div", { className: "p-8 text-center space-y-4 my-auto bg-card border border-border rounded-xl max-w-md mx-auto" },
-                  React.createElement(FileText, { className: "w-12 h-12 text-primary mx-auto" }),
-                  React.createElement("p", { className: "text-sm font-medium text-foreground" }, preview.fileName || "Uploaded Resume Document"),
-                  React.createElement("a", { 
-                    href: preview.dataUrl, 
-                    download: preview.fileName || "resume", 
-                    className: "inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-medium hover:bg-primary/90 transition-colors" 
-                  }, React.createElement(Download, { className: "w-4 h-4" }), "Download Resume File")
-                )
-              : React.createElement("div", { className: "max-w-2xl mx-auto w-full my-auto space-y-5 bg-card border border-border rounded-2xl p-6 shadow-xs" },
-                  React.createElement("div", { className: "flex items-start justify-between border-b border-border pb-4" },
-                    React.createElement("div", null,
-                      React.createElement("h3", { className: "text-lg font-bold text-foreground" }, applicant.name),
-                      React.createElement("p", { className: "text-sm text-primary font-medium mt-0.5" }, applicant.course || "Student"),
-                      React.createElement("p", { className: "text-xs text-muted-foreground mt-0.5" }, applicant.college || "University")
-                    ),
-                    (applicant.score != null || applicant.atsScore != null) && React.createElement("div", { className: "text-right" },
-                      React.createElement("span", { className: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" },
-                        `Resume Score: ${applicant.score ?? applicant.atsScore ?? 88}%`
-                      )
+        React.createElement("div", { className: "flex-1 overflow-y-auto p-6 bg-background/50 flex flex-col" },
+          loading
+            ? React.createElement("div", { className: "py-16 text-center space-y-3 my-auto" },
+                React.createElement("div", { className: "w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" }),
+                React.createElement("p", { className: "text-sm text-muted-foreground" }, "Loading candidate resume\u2026")
+              )
+            : isPdf
+              ? React.createElement("object", {
+                  data: previewSource,
+                  type: "application/pdf",
+                  className: "w-full flex-1 min-h-[70vh] border border-border rounded-xl bg-white shadow-xs overflow-hidden"
+                },
+                  React.createElement("iframe", { 
+                    title: `${applicant.name} resume`, 
+                    src: previewSource, 
+                    className: "w-full h-full min-h-[70vh] border-0" 
+                  },
+                    React.createElement("div", { className: "p-8 text-center space-y-3" },
+                      React.createElement("p", { className: "text-sm text-foreground" }, "Resume PDF preview"),
+                      React.createElement("button", {
+                        onClick: handleOpenNewTab,
+                        className: "px-4 py-2 bg-primary text-white text-xs rounded-xl"
+                      }, "Open Resume in New Tab")
                     )
-                  ),
-                  React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs" },
-                    React.createElement("div", { className: "p-3 bg-background rounded-xl border border-border" },
-                      React.createElement("span", { className: "text-muted-foreground block text-[10px] uppercase font-semibold mb-1" }, "Email Address"),
-                      React.createElement("p", { className: "text-foreground font-medium" }, applicant.email || "applicant@example.com")
-                    ),
-                    React.createElement("div", { className: "p-3 bg-background rounded-xl border border-border" },
-                      React.createElement("span", { className: "text-muted-foreground block text-[10px] uppercase font-semibold mb-1" }, "Phone Number"),
-                      React.createElement("p", { className: "text-foreground font-medium" }, applicant.phone || "+91 98765 43210")
-                    ),
-                    React.createElement("div", { className: "p-3 bg-background rounded-xl border border-border" },
-                      React.createElement("span", { className: "text-muted-foreground block text-[10px] uppercase font-semibold mb-1" }, "Applied For"),
-                      React.createElement("p", { className: "text-foreground font-medium" }, applicant.internship || "Internship")
-                    ),
-                    React.createElement("div", { className: "p-3 bg-background rounded-xl border border-border" },
-                      React.createElement("span", { className: "text-muted-foreground block text-[10px] uppercase font-semibold mb-1" }, "Applied Date"),
-                      React.createElement("p", { className: "text-foreground font-medium" }, applicant.applied || "Recently")
-                    )
-                  ),
-                  React.createElement("div", { className: "p-4 bg-primary/5 rounded-xl border border-primary/20 text-xs text-primary flex items-center gap-2.5" },
-                    React.createElement(FileText, { className: "w-4 h-4 flex-shrink-0" }),
-                    React.createElement("span", null, "Application Candidate Profile Resume. Direct PDF attachment was not uploaded with this application.")
                   )
                 )
+              : previewSource
+                ? React.createElement("div", { className: "p-8 text-center space-y-4 my-auto bg-card border border-border rounded-xl max-w-md mx-auto" },
+                    React.createElement(FileText, { className: "w-12 h-12 text-primary mx-auto" }),
+                    React.createElement("p", { className: "text-sm font-medium text-foreground" }, preview?.fileName || "Uploaded Resume Document"),
+                    React.createElement("a", { 
+                      href: previewSource, 
+                      download: preview?.fileName || `${applicant.name}_Resume`, 
+                      className: "inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-medium hover:bg-primary/90 transition-colors" 
+                    }, React.createElement(Download, { className: "w-4 h-4" }), "Download Resume File")
+                  )
+                : React.createElement("div", { className: "max-w-2xl mx-auto w-full my-auto space-y-5 bg-card border border-border rounded-2xl p-6 shadow-xs" },
+                    error && React.createElement("div", { className: "p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2" },
+                      React.createElement(Sparkles, { className: "w-4 h-4 text-amber-600 flex-shrink-0" }),
+                      React.createElement("span", null, error)
+                    ),
+                    React.createElement("div", { className: "flex items-start justify-between border-b border-border pb-4" },
+                      React.createElement("div", null,
+                        React.createElement("h3", { className: "text-lg font-bold text-foreground" }, applicant.name),
+                        React.createElement("p", { className: "text-sm text-primary font-medium mt-0.5" }, applicant.course || "Student"),
+                        React.createElement("p", { className: "text-xs text-muted-foreground mt-0.5" }, applicant.college || "University")
+                      ),
+                      (applicant.score != null || applicant.atsScore != null) && React.createElement("div", { className: "text-right" },
+                        React.createElement("span", { className: "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" },
+                          `Resume Score: ${applicant.score ?? applicant.atsScore ?? 0}%`
+                        )
+                      )
+                    ),
+                    React.createElement("div", { className: "grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs" },
+                      React.createElement("div", { className: "p-3 bg-background rounded-xl border border-border" },
+                        React.createElement("span", { className: "text-muted-foreground block text-[10px] uppercase font-semibold mb-1" }, "Email Address"),
+                        React.createElement("p", { className: "text-foreground font-medium" }, applicant.email || "applicant@example.com")
+                      ),
+                      React.createElement("div", { className: "p-3 bg-background rounded-xl border border-border" },
+                        React.createElement("span", { className: "text-muted-foreground block text-[10px] uppercase font-semibold mb-1" }, "Phone Number"),
+                        React.createElement("p", { className: "text-foreground font-medium" }, applicant.phone || "+91 98765 43210")
+                      ),
+                      React.createElement("div", { className: "p-3 bg-background rounded-xl border border-border" },
+                        React.createElement("span", { className: "text-muted-foreground block text-[10px] uppercase font-semibold mb-1" }, "Applied For"),
+                        React.createElement("p", { className: "text-foreground font-medium" }, applicant.internship || "Internship")
+                      ),
+                      React.createElement("div", { className: "p-3 bg-background rounded-xl border border-border" },
+                        React.createElement("span", { className: "text-muted-foreground block text-[10px] uppercase font-semibold mb-1" }, "Applied Date"),
+                        React.createElement("p", { className: "text-foreground font-medium" }, applicant.applied || "Recently")
+                      )
+                    ),
+                    React.createElement("div", { className: "p-4 bg-primary/5 rounded-xl border border-primary/20 text-xs text-primary flex items-center gap-2.5" },
+                      React.createElement(FileText, { className: "w-4 h-4 flex-shrink-0" }),
+                      React.createElement("span", null, "Application Candidate Profile Resume. Direct PDF attachment was not uploaded with this application.")
+                    )
+                  )
+        )
       )
-    )
+    ),
+    document.body
   );
 }
 
@@ -282,6 +318,17 @@ function CompanyPortal({ section, setSection, userInfo, logout }) {
   const [settingsTab, setSettingsTab] = useState("account");
   const [selectedInternship, setSelectedInternship] = useState(null);
   const [applicantActionMenu, setApplicantActionMenu] = useState(null);
+
+  useEffect(() => {
+    if (!applicantActionMenu) return;
+    const handleClose = () => setApplicantActionMenu(null);
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("resize", handleClose);
+    return () => {
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("resize", handleClose);
+    };
+  }, [applicantActionMenu]);
   const [applicantStatuses, setApplicantStatuses] = useState({});
   const [applicantSearch, setApplicantSearch] = useState("");
   const [stageFilter, setStageFilter] = useState("");
@@ -497,15 +544,43 @@ function CompanyPortal({ section, setSection, userInfo, logout }) {
     } catch (error) { toast.error(error.message || "Could not send this message."); }
   };
   const openApplicantResume = async (applicant) => {
+    if (resumePreview?.blobUrl) {
+      try { URL.revokeObjectURL(resumePreview.blobUrl); } catch {}
+    }
     setViewingResume(applicant);
     setResumePreview(null);
     setResumePreviewError("");
     setResumePreviewLoading(true);
     try {
       const file = await api.applicationResume(applicant.id);
-      setResumePreview({ ...file, dataUrl: `data:${file.mimeType};base64,${file.dataBase64}` });
+      let blobUrl = null;
+      if (file?.dataBase64) {
+        try {
+          const binaryString = window.atob(file.dataBase64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: file.mimeType || "application/pdf" });
+          blobUrl = URL.createObjectURL(blob);
+        } catch (convErr) {
+          console.warn("Base64 to blob conversion failed:", convErr);
+        }
+      }
+      const streamUrl = api.applicationResumeStreamUrl ? api.applicationResumeStreamUrl(applicant.id) : null;
+      setResumePreview({
+        ...file,
+        blobUrl,
+        streamUrl,
+        dataUrl: file?.dataBase64 ? `data:${file.mimeType || "application/pdf"};base64,${file.dataBase64}` : null
+      });
     } catch (error) {
-      setResumePreviewError(error.message || "Could not load the uploaded resume.");
+      const msg = error.message || "Could not load the uploaded resume.";
+      setResumePreviewError(msg);
+      const streamUrl = api.applicationResumeStreamUrl ? api.applicationResumeStreamUrl(applicant.id) : null;
+      if (streamUrl) {
+        setResumePreview({ fileName: `${applicant.name}_Resume.pdf`, mimeType: "application/pdf", streamUrl });
+      }
     } finally {
       setResumePreviewLoading(false);
     }
@@ -755,7 +830,7 @@ function CompanyPortal({ section, setSection, userInfo, logout }) {
       ].map((item) => /* @__PURE__ */ React.createElement("div", { key: item.label, className: "px-4 py-3 text-center" }, /* @__PURE__ */ React.createElement(item.icon, { className: "w-4 h-4 text-primary mx-auto mb-1" }), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-muted-foreground" }, item.label), /* @__PURE__ */ React.createElement("p", { className: "text-xs font-medium text-foreground mt-0.5" }, item.value)))), /* @__PURE__ */ React.createElement("div", { className: "p-5 space-y-5" }, postForm.description && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-medium text-foreground mb-2" }, "About the Internship"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-muted-foreground leading-relaxed" }, postForm.description)), respLines.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-medium text-foreground mb-2" }, "Roles & Responsibilities"), /* @__PURE__ */ React.createElement("ul", { className: "space-y-1.5" }, respLines.map((r, i) => /* @__PURE__ */ React.createElement("li", { key: i, className: "flex items-start gap-2 text-sm text-muted-foreground" }, /* @__PURE__ */ React.createElement("span", { className: "w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" }), r)))), skillsList.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-medium text-foreground mb-2" }, "Required Skills"), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2" }, skillsList.map((s) => /* @__PURE__ */ React.createElement("span", { key: s, className: "px-2.5 py-1 bg-background border border-border rounded-lg text-xs text-foreground" }, s)))), postForm.eligibility && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-medium text-foreground mb-2" }, "Eligibility"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-muted-foreground" }, postForm.eligibility), postForm.minCgpa && /* @__PURE__ */ React.createElement("p", { className: "text-xs text-muted-foreground mt-1" }, "Minimum CGPA: ", /* @__PURE__ */ React.createElement("span", { className: "font-medium text-foreground" }, postForm.minCgpa))), postForm.perks.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-medium text-foreground mb-2" }, "Perks & Benefits"), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2" }, postForm.perks.map((p) => /* @__PURE__ */ React.createElement("span", { key: p, className: "flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-700" }, /* @__PURE__ */ React.createElement(CheckCircle, { className: "w-3 h-3" }), p)))), postForm.showSelection && postForm.selectionSteps.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "text-sm font-medium text-foreground mb-2" }, "Selection Process"), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 flex-wrap" }, postForm.selectionSteps.map((s, i) => /* @__PURE__ */ React.createElement(React.Fragment, { key: s }, /* @__PURE__ */ React.createElement("span", { className: "flex items-center gap-1.5 px-2.5 py-1 bg-primary/5 border border-primary/20 rounded-lg text-xs text-primary" }, /* @__PURE__ */ React.createElement("span", { className: "w-4 h-4 rounded-full bg-primary text-white flex items-center justify-center text-[9px] font-medium" }, i + 1), s), i < postForm.selectionSteps.length - 1 && /* @__PURE__ */ React.createElement(ArrowRight, { className: "w-3 h-3 text-muted-foreground" }))))))), /* @__PURE__ */ React.createElement("div", { className: "flex gap-3" }, /* @__PURE__ */ React.createElement("button", { onClick: () => setPostStep2(3), className: "px-5 py-2.5 border border-border text-foreground rounded-xl text-sm font-medium hover:border-primary hover:text-primary transition-colors" }, "Edit Details"), /* @__PURE__ */ React.createElement("button", { onClick: handlePublishJob, disabled: publishing, className: `px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 cursor-pointer ${publishing ? "opacity-60 cursor-not-allowed" : ""}` }, /* @__PURE__ */ React.createElement(CheckCircle, { className: "w-4 h-4" }), publishing ? "Publishing\u2026" : (isEdit ? "Save Changes" : "Publish Internship"))));
     })()));
   })(), section === "applicants" && (() => {
-    const resumeScores = Object.fromEntries(companyApplicants.map((applicant) => [applicant.id, Number(applicant.score ?? applicant.atsScore ?? 88)]));
+    const resumeScores = Object.fromEntries(companyApplicants.map((applicant) => [applicant.id, applicant.score != null ? Number(applicant.score) : (applicant.atsScore != null ? Number(applicant.atsScore) : null)]));
     const stageColors = {
       "Applied": "bg-blue-50 text-blue-700 border-blue-200",
       "Review": "bg-amber-50 text-amber-700 border-amber-200",
@@ -860,70 +935,89 @@ function CompanyPortal({ section, setSection, userInfo, logout }) {
           type: "button",
           onClick: (e) => {
             e.stopPropagation();
-            setApplicantActionMenu((prev) => (prev === i ? null : i));
+            if (applicantActionMenu?.index === i) {
+              setApplicantActionMenu(null);
+              return;
+            }
+            const rect = e.currentTarget.getBoundingClientRect();
+            const menuHeight = 280;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const openUp = spaceBelow < menuHeight;
+            const top = openUp ? Math.max(10, rect.top - menuHeight) : rect.bottom + 4;
+            const right = Math.max(16, window.innerWidth - rect.right);
+            setApplicantActionMenu({ index: i, top, right });
           },
           className: "p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-border/50 transition-colors cursor-pointer"
         },
         /* @__PURE__ */ React.createElement(MoreVertical, { className: "w-4 h-4" })
-      ), (applicantActionMenu === i || applicantActionMenu?.index === i) && /* @__PURE__ */ React.createElement(React.Fragment, null, 
-        /* @__PURE__ */ React.createElement("div", { 
-          className: "fixed inset-0 z-40", 
-          onClick: (e) => { e.stopPropagation(); setApplicantActionMenu(null); } 
-        }), 
-        /* @__PURE__ */ React.createElement("div", { 
-          className: `absolute right-0 ${i > 0 && i >= visibleApplicants.length - 2 ? "bottom-8" : "top-8"} z-50 bg-card border border-border rounded-xl shadow-xl py-1.5 w-44 divide-y divide-border/40 text-left` 
-        }, 
-          /* @__PURE__ */ React.createElement("div", { className: "py-1" }, [
-            { label: "Review", icon: FileText, status: "Review", color: "text-amber-600" },
-            { label: "Schedule Interview", icon: Calendar, status: "Interview Scheduled", color: "text-violet-600" },
-            { label: "Shortlist", icon: CheckCircle, status: "Shortlisted", color: "text-emerald-600" },
-            { label: "Hire", icon: Award, status: "Hired", color: "text-blue-600" },
-            { label: "Reject", icon: X, status: "Rejected", color: "text-red-600" }
-          ].map((item) => /* @__PURE__ */ React.createElement(
-            "button",
-            {
-              key: item.label,
-              type: "button",
-              onClick: (e) => {
-                e.stopPropagation();
-                setStatus(item.status);
-                setApplicantActionMenu(null);
-              },
-              className: `w-full flex items-center gap-2.5 px-4 py-2 text-xs hover:bg-background transition-colors cursor-pointer ${item.color}`
+      ), applicantActionMenu?.index === i && createPortal(
+        /* @__PURE__ */ React.createElement(React.Fragment, null, 
+          /* @__PURE__ */ React.createElement("div", { 
+            className: "fixed inset-0 z-[9998]", 
+            onClick: (e) => { e.stopPropagation(); setApplicantActionMenu(null); } 
+          }), 
+          /* @__PURE__ */ React.createElement("div", { 
+            style: {
+              position: "fixed",
+              top: `${applicantActionMenu.top}px`,
+              right: `${applicantActionMenu.right}px`,
+              zIndex: 9999
             },
-            /* @__PURE__ */ React.createElement(item.icon, { className: "w-3.5 h-3.5 flex-shrink-0" }),
-            item.label
-          ))),
-          /* @__PURE__ */ React.createElement("div", { className: "py-1" }, [
-            { label: "Message", icon: MessageSquare, color: "text-primary" },
-            { label: "Remove", icon: Trash2, color: "text-red-600" }
-          ].map((item) => /* @__PURE__ */ React.createElement(
-            "button",
-            {
-              key: item.label,
-              type: "button",
-              onClick: (e) => {
-                e.stopPropagation();
-                if (item.label === "Message") {
-                  openApplicantChat(applicant);
-                } else if (item.label === "Remove") {
-                  if (window.confirm("Are you sure you want to remove this applicant?")) {
-                    api.deleteApplication(applicant.id).then(() => {
-                      setCompanyApplicants((prev) => prev.filter((a) => a.id !== applicant.id));
-                      toast.success("Applicant removed successfully.");
-                    }).catch((err) => {
-                      toast.error(err.message || "Failed to remove applicant.");
-                    });
+            className: "bg-card border border-border rounded-xl shadow-2xl py-1.5 w-48 divide-y divide-border/40 text-left animate-in fade-in zoom-in-95 duration-100" 
+          }, 
+            /* @__PURE__ */ React.createElement("div", { className: "py-1" }, [
+              { label: "Review", icon: FileText, status: "Review", color: "text-amber-600" },
+              { label: "Schedule Interview", icon: Calendar, status: "Interview Scheduled", color: "text-violet-600" },
+              { label: "Shortlist", icon: CheckCircle, status: "Shortlisted", color: "text-emerald-600" },
+              { label: "Hire", icon: Award, status: "Hired", color: "text-blue-600" },
+              { label: "Reject", icon: X, status: "Rejected", color: "text-red-600" }
+            ].map((item) => /* @__PURE__ */ React.createElement(
+              "button",
+              {
+                key: item.label,
+                type: "button",
+                onClick: (e) => {
+                  e.stopPropagation();
+                  setStatus(item.status);
+                  setApplicantActionMenu(null);
+                },
+                className: `w-full flex items-center gap-2.5 px-4 py-2 text-xs hover:bg-background transition-colors cursor-pointer ${item.color}`
+              },
+              /* @__PURE__ */ React.createElement(item.icon, { className: "w-3.5 h-3.5 flex-shrink-0" }),
+              item.label
+            ))),
+            /* @__PURE__ */ React.createElement("div", { className: "py-1" }, [
+              { label: "Message", icon: MessageSquare, color: "text-primary" },
+              { label: "Remove", icon: Trash2, color: "text-red-600" }
+            ].map((item) => /* @__PURE__ */ React.createElement(
+              "button",
+              {
+                key: item.label,
+                type: "button",
+                onClick: (e) => {
+                  e.stopPropagation();
+                  if (item.label === "Message") {
+                    openApplicantChat(applicant);
+                  } else if (item.label === "Remove") {
+                    if (window.confirm("Are you sure you want to remove this applicant?")) {
+                      api.deleteApplication(applicant.id).then(() => {
+                        setCompanyApplicants((prev) => prev.filter((a) => a.id !== applicant.id));
+                        toast.success("Applicant removed successfully.");
+                      }).catch((err) => {
+                        toast.error(err.message || "Failed to remove applicant.");
+                      });
+                    }
                   }
-                }
-                setApplicantActionMenu(null);
+                  setApplicantActionMenu(null);
+                },
+                className: `w-full flex items-center gap-2.5 px-4 py-2 text-xs hover:bg-background transition-colors cursor-pointer ${item.color}`
               },
-              className: `w-full flex items-center gap-2.5 px-4 py-2 text-xs hover:bg-background transition-colors cursor-pointer ${item.color}`
-            },
-            /* @__PURE__ */ React.createElement(item.icon, { className: "w-3.5 h-3.5 flex-shrink-0" }),
-            item.label
-          )))
-        )
+              /* @__PURE__ */ React.createElement(item.icon, { className: "w-3.5 h-3.5 flex-shrink-0" }),
+              item.label
+            )))
+          )
+        ),
+        document.body
       )));
     })))));
   })(), section === "manage" && /* @__PURE__ */ React.createElement(ManageInternships, { companyJobs, setCompanyJobs, setSection, setSelectedInternship, onEditInternship: startEditInternship }), section === "company-profile" && /* @__PURE__ */ React.createElement("div", null, cropSrc && /* @__PURE__ */ React.createElement(
@@ -1287,7 +1381,7 @@ function CompanyPortal({ section, setSection, userInfo, logout }) {
       a.click();
       URL.revokeObjectURL(a.href);
     }, className: "flex items-center gap-1.5 text-primary text-xs font-medium px-2.5 py-1 border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors" }, /* @__PURE__ */ React.createElement(Download, { className: "w-3 h-3" }), "Export")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between px-5 py-4 hover:bg-background/50 transition-colors" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-medium text-foreground" }, "Cookie preferences"), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-muted-foreground mt-0.5" }, "Manage how we use cookies on your account")), /* @__PURE__ */ React.createElement(Toggle, { on: companyPrivacy.cookies ?? true, onToggle: () => saveCompanyPrivacy("cookies") })))), /* @__PURE__ */ React.createElement("div", { className: "bg-card border border-red-100 rounded-xl overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "px-5 py-4 border-b border-red-100" }, /* @__PURE__ */ React.createElement("h2", { className: "text-base font-medium text-red-600" }, "Danger zone")), /* @__PURE__ */ React.createElement("div", { className: "divide-y divide-red-50" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between px-5 py-4" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-medium text-foreground" }, "Close employer account"), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-muted-foreground mt-0.5" }, "Deactivate your account. You can reactivate any time.")), /* @__PURE__ */ React.createElement("button", { onClick: () => setConfirmDanger("close"), className: "px-3 py-1.5 border border-border text-foreground rounded-lg text-xs hover:border-red-300 hover:text-red-500 transition-colors whitespace-nowrap ml-4" }, "Close Account")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between px-5 py-4" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("p", { className: "text-sm font-medium text-foreground" }, "Delete employer account"), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-muted-foreground mt-0.5" }, "Permanently delete your account and all data. This cannot be undone.")), /* @__PURE__ */ React.createElement("button", { onClick: () => setConfirmDanger("delete"), className: "px-3 py-1.5 border border-red-200 text-red-500 rounded-lg text-xs hover:bg-red-50 transition-colors whitespace-nowrap ml-4" }, "Delete"))))))));
-  })(), viewingResume && React.createElement(ApplicantResumeModal, { applicant: viewingResume, preview: resumePreview, loading: resumePreviewLoading, error: resumePreviewError, onClose: () => { setViewingResume(null); setResumePreview(null); setResumePreviewError(""); } }), directMessageModal && /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fadeIn" }, /* @__PURE__ */ React.createElement("div", { className: "bg-card border border-border rounded-2xl max-w-lg w-full my-auto shadow-2xl overflow-hidden flex flex-col h-[520px]" }, /* @__PURE__ */ React.createElement("div", { className: "px-5 py-4 border-b border-border flex items-center justify-between bg-card flex-shrink-0" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm" }, directMessageModal.name[0]), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "font-semibold text-sm text-foreground" }, directMessageModal.name), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-muted-foreground" }, directMessageModal.role, " ", directMessageModal.college ? `\u2022 ${directMessageModal.college}` : ""))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1" }, /* @__PURE__ */ React.createElement(
+  })(), viewingResume && React.createElement(ApplicantResumeModal, { applicant: viewingResume, preview: resumePreview, loading: resumePreviewLoading, error: resumePreviewError, onClose: () => { if (resumePreview?.blobUrl) { try { URL.revokeObjectURL(resumePreview.blobUrl); } catch {} } setViewingResume(null); setResumePreview(null); setResumePreviewError(""); } }), directMessageModal && /* @__PURE__ */ React.createElement("div", { className: "fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fadeIn" }, /* @__PURE__ */ React.createElement("div", { className: "bg-card border border-border rounded-2xl max-w-lg w-full my-auto shadow-2xl overflow-hidden flex flex-col h-[520px]" }, /* @__PURE__ */ React.createElement("div", { className: "px-5 py-4 border-b border-border flex items-center justify-between bg-card flex-shrink-0" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm" }, directMessageModal.name[0]), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h3", { className: "font-semibold text-sm text-foreground" }, directMessageModal.name), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-muted-foreground" }, directMessageModal.role, " ", directMessageModal.college ? `\u2022 ${directMessageModal.college}` : ""))), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => {

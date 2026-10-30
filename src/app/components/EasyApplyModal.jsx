@@ -12,18 +12,51 @@ function EasyApplyModal({
   const firstName = userInfo?.firstName || "";
   const lastName = userInfo?.lastName || "";
   const candidateEmail = userInfo?.email || "";
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(() => (userInfo?.phone || "").replace(/\D/g, "").slice(-10));
   const [resumeName, setResumeName] = useState("");
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeKey, setResumeKey] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [studentProfileData, setStudentProfileData] = useState(null);
   useEffect(() => {
     if (!userInfo?.id) return;
     api.studentProfile().then((profile) => {
+      setStudentProfileData(profile);
       setResumeKey(profile.resumeKey || null);
       if (profile.resumeKey) setResumeName("Resume on your profile");
-    }).catch(() => {});
+      if (profile.phone) {
+        setPhone((prev) => prev || String(profile.phone).replace(/\D/g, "").slice(-10));
+      }
+    }).catch(() => { });
   }, []);
+  const handlePhoneChange = (e) => {
+    const digitsOnly = e.target.value.replace(/\D/g, "").slice(0, 10);
+    setPhone(digitsOnly);
+  };
+  const handlePhoneKeyDown = (e) => {
+    if (
+      ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key) ||
+      ((e.ctrlKey || e.metaKey) && ["a", "c", "v", "x", "z"].includes(e.key.toLowerCase()))
+    ) {
+      return;
+    }
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    const currentLength = phone.length;
+    const input = e.target;
+    const hasSelection = input.selectionStart !== input.selectionEnd;
+    if (currentLength >= 10 && !hasSelection) {
+      e.preventDefault();
+    }
+  };
+  const handlePhonePaste = (e) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData ? e.clipboardData.getData("text") : "";
+    const digitsOnly = pastedText.replace(/\D/g, "").slice(0, 10);
+    setPhone(digitsOnly);
+  };
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) { setResumeFile(file); setResumeName(file.name); }
@@ -34,9 +67,9 @@ function EasyApplyModal({
       toast.error("Please sign in with a student account before applying.");
       return;
     }
-    const normalizedPhone = phone.replace(/[\s()-]/g, "");
-    if (!/^(?:\+91)?[6-9]\d{9}$/.test(normalizedPhone)) {
-      toast.error("Enter a valid 10-digit Indian mobile number, optionally with +91.");
+    const normalizedPhone = phone.replace(/\D/g, "");
+    if (normalizedPhone.length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number.");
       return;
     }
     try {
@@ -61,7 +94,10 @@ function EasyApplyModal({
         candidateName: `${firstName} ${lastName}`.trim() || userInfo?.name || "Student Applicant",
         candidateEmail: candidateEmail || userInfo?.email || "student@example.com",
         phone: normalizedPhone,
-        studentId: userInfo?.id
+        studentId: userInfo?.id,
+        college: studentProfileData?.college || userInfo?.college || "State Technical University",
+        course: studentProfileData?.degree || userInfo?.degree || "B.Tech Computer Science",
+        skills: studentProfileData?.skills || []
       });
       setIsSubmitted(true);
       setTimeout(() => onSuccess(internship.id), 2e3);
@@ -117,12 +153,13 @@ function EasyApplyModal({
     {
       type: "tel",
       required: true,
-      inputMode: "tel",
+      inputMode: "numeric",
+      maxLength: 10,
       autoComplete: "tel",
-      pattern: "(?:\\+91[\\s-]?)?[6-9][0-9]{9}",
-      title: "Enter a valid 10-digit Indian mobile number, optionally with +91.",
       value: phone,
-      onChange: (e) => setPhone(e.target.value),
+      onChange: handlePhoneChange,
+      onKeyDown: handlePhoneKeyDown,
+      onPaste: handlePhonePaste,
       className: "w-full h-11 px-3.5 bg-white border border-[#e0dfdc] focus:border-[#0a66c2] focus:ring-1 focus:ring-[#0a66c2] rounded-xl text-sm outline-none transition-colors",
       placeholder: "Phone Number"
     }

@@ -110,6 +110,9 @@ export function analyzeResumeATS(resume) {
     if (!(personal.phone || '').trim()) {
         contactIssues.push('Phone number is missing.');
         contactScore -= 20;
+    } else if ((personal.phone || '').trim().replace(/\D/g, '').length !== 10) {
+        contactIssues.push('Phone number must be a valid 10-digit number.');
+        contactScore -= 10;
     }
     if (!(personal.linkedin || '').trim() && !(personal.github || '').trim()) {
         contactIssues.push('Consider adding LinkedIn or GitHub for technical credibility.');

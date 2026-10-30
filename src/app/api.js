@@ -299,6 +299,12 @@ export const api = {
 
   applicationResume: async (applicationId) => get(`/applications/${applicationId}/resume`),
 
+  applicationResumeStreamUrl: (applicationId) => {
+    const user = getCurrentUser();
+    const emailParam = user?.email ? `?email=${encodeURIComponent(user.email)}` : '';
+    return `${BASE_URL}/applications/${applicationId}/resume/stream${emailParam}`;
+  },
+
   // ── Saved internships (localStorage only) ─────────────────
   savedInternships: async () => {
     try { return JSON.parse(localStorage.getItem('interndesk_savedInternships') || '[]'); }
