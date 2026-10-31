@@ -399,6 +399,7 @@ export const api = {
 
   // ── Notifications ──────────────────────────────────────────
   notifications: async () => get('/notifications'),
+  createNotification: async (data) => post('/notifications', data),
 
   markNotificationRead: async (id) => patch(`/notifications/${id}/read`, {}),
 

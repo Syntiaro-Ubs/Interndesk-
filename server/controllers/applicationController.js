@@ -158,6 +158,7 @@ export const applyForInternship = async (req, res) => {
 
     const newApp = await Application.create({
       jobId: job.id,
+      studentId: student.id,
       jobTitle: job.title || 'Internship',
       title: job.title || 'Internship',
       company: job.company || 'Company',

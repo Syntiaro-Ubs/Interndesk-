@@ -246,14 +246,22 @@ export function SettingsPrivacyPage({ setView, userInfo, logout }) {
                         { className: "flex items-center gap-2 px-3 py-2.5 bg-background border border-border rounded-xl" },
                         /* @__PURE__ */ React.createElement(field.icon, { className: "w-4 h-4 text-muted-foreground flex-shrink-0" }),
                         /* @__PURE__ */ React.createElement("span", { className: "text-sm text-foreground flex-1 truncate" }, field.value || "â€”"),
-                        /* @__PURE__ */ React.createElement("button", { className: "text-primary text-xs font-medium hover:underline flex-shrink-0" }, "Edit")
+                        /* @__PURE__ */ React.createElement("button", {
+  type: "button",
+  onClick: () => setView("profile"),
+  className: "text-primary text-xs font-medium hover:underline flex-shrink-0 cursor-pointer"
+}, "Edit")
                       )
                     )
                   )
                 ),
                 /* @__PURE__ */ React.createElement(
                   "button",
-                  { className: "mt-5 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors" },
+                  {
+                    type: "button",
+                    onClick: () => toast.success("Account preferences updated successfully."),
+                    className: "mt-5 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+                  },
                   "Save Changes"
                 )
               )

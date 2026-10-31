@@ -329,7 +329,7 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
       className: "appearance-none text-xs font-semibold border border-border rounded-lg pl-3 pr-7 py-2 bg-card outline-none focus:border-primary cursor-pointer text-foreground"
     },
     ["Newest", "Highest Stipend", "Most Relevant", "Deadline"].map((o) => /* @__PURE__ */ React.createElement("option", { key: o }, o))
-  ), /* @__PURE__ */ React.createElement(ChevronDown, { className: "w-3 h-3 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" })))), !loading && !loadError && filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center justify-center py-12 text-center bg-card border border-border rounded-2xl p-6" }, /* @__PURE__ */ React.createElement("div", { className: "w-14 h-14 bg-background rounded-2xl flex items-center justify-center mb-4" }, /* @__PURE__ */ React.createElement(BriefcaseIcon, { className: "w-7 h-7 text-muted-foreground" })), /* @__PURE__ */ React.createElement("h3", { className: "text-base font-bold text-foreground mb-1" }, "No internships match your selected category or filters"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-muted-foreground mb-5" }, "Try selecting another department or clearing your filters."), /* @__PURE__ */ React.createElement("button", { onClick: clearAll, className: "px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors cursor-pointer" }, "Show All Internships")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, filtered.map((internship) => {
+  ), /* @__PURE__ */ React.createElement(ChevronDown, { className: "w-3 h-3 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" })))), !loading && !loadError && filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center justify-center py-12 text-center bg-card border border-border rounded-2xl p-6" }, /* @__PURE__ */ React.createElement("div", { className: "w-14 h-14 bg-background rounded-2xl flex items-center justify-center mb-4" }, /* @__PURE__ */ React.createElement(BriefcaseIcon, { className: "w-7 h-7 text-muted-foreground" })), /* @__PURE__ */ React.createElement("h3", { className: "text-base font-bold text-foreground mb-1" }, "No internships match your selected category or filters"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-muted-foreground mb-5" }, "Try selecting another department or clearing your filters."), /* @__PURE__ */ React.createElement("button", { onClick: clearAll, className: "px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors cursor-pointer" }, "Show All Internships")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, paginatedJobs.map((internship) => {
     const isSaved = savedIds.includes(internship.id);
     return /* @__PURE__ */ React.createElement(
       "div",
@@ -373,14 +373,40 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
         "Easy Apply"
       ))
     );
-  })), filtered.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-1.5 mt-5 pb-2" }, /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors" }, "â† Previous"), [1, 2, 3].map((p) => /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      key: p,
-      className: `w-9 h-9 rounded-lg text-sm font-medium transition-colors ${p === 1 ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:border-primary hover:text-primary"}`
-    },
-    p
-  )), /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:border-primary hover:text-primary transition-colors" }, "Next â†’"))))));
+  })), filtered.length > 0 && /* @__PURE__ */ React.createElement(
+    "div",
+    { className: "flex items-center justify-center gap-1.5 mt-5 pb-2" },
+    /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        disabled: currentPage <= 1,
+        onClick: () => setCurrentPage((p) => Math.max(1, p - 1)),
+        className: `px-4 py-2 border border-border rounded-lg text-sm transition-colors cursor-pointer ${currentPage <= 1 ? "opacity-40 cursor-not-allowed" : "text-foreground hover:border-primary hover:text-primary"}`
+      },
+      "← Previous"
+    ),
+    Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: p,
+        type: "button",
+        onClick: () => setCurrentPage(p),
+        className: `w-9 h-9 rounded-lg text-sm font-medium transition-colors cursor-pointer ${p === currentPage ? "bg-primary text-primary-foreground font-bold shadow-xs" : "border border-border text-foreground hover:border-primary hover:text-primary"}`
+      },
+      p
+    )),
+    /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        type: "button",
+        disabled: currentPage >= totalPages,
+        onClick: () => setCurrentPage((p) => Math.min(totalPages, p + 1)),
+        className: `px-4 py-2 border border-border rounded-lg text-sm transition-colors cursor-pointer ${currentPage >= totalPages ? "opacity-40 cursor-not-allowed" : "text-foreground hover:border-primary hover:text-primary"}`
+      },
+      "Next →"
+    )
+  )))))
 }
 
 export {
