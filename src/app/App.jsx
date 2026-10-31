@@ -236,6 +236,12 @@ function App() {
   const [adminSection, setAdminSectionState] = useState(() => initialState.adminSection || "overview");
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [selectedInternship, setSelectedInternship] = useState(null);
+  const [searchFilters, setSearchFilters] = useState(null);
+
+  const handleSearch = (filters) => {
+    setSearchFilters(filters);
+    setView("search");
+  };
 
   // Synchronize browser URL bar with current view/section
   const syncUrl = (nextView, nextSection, nextAuth, nextJob, nextComp, nextAdminSec) => {
@@ -473,6 +479,7 @@ function App() {
           setView={setView}
           setAuthParams={setAuthParams}
           onSelectInternship={handleSelectInternship}
+          onSearch={handleSearch}
         />
       )}
       {view === "search" && (
@@ -480,6 +487,7 @@ function App() {
           setView={setView}
           userRole={userRole}
           onSelectInternship={handleSelectInternship}
+          initialFilters={searchFilters}
         />
       )}
       {view === "details" && (
@@ -500,6 +508,7 @@ function App() {
           setView={setView}
           userInfo={userInfo}
           onSelectInternship={handleSelectInternship}
+          onSearch={handleSearch}
         />
       )}
       {view === "profile" && userRole === "student" && <StudentProfile setView={setView} userInfo={userInfo} />}
@@ -518,7 +527,7 @@ function App() {
           logout={logout}
         />
       )}
-      {view === "career-resources" && <CareerResources setView={setView} />}
+      {view === "career-resources" && <CareerResources setView={setView} userRole={userRole} />}
       {view === "companies" && (
         <CompaniesPage
           setView={setView}
@@ -548,8 +557,17 @@ function App() {
 
       {showFooter && <Footer setView={setView} setAuthParams={setAuthParams} userRole={userRole} />}
       {showFooter && (
-        <div className="md:hidden text-center py-3 text-xs text-muted-foreground bg-card border-t border-border">
-          Powered By SYNTIARO
+        <div className="md:hidden text-center py-4 px-4 text-xs text-muted-foreground bg-card border-t border-border pb-20">
+          <div className="flex items-center justify-center gap-3 mb-2 flex-wrap text-[11px] font-medium text-foreground">
+            <button onClick={() => setView("settings-privacy")} className="hover:text-primary hover:underline cursor-pointer">
+              Privacy Policy
+            </button>
+            <span>•</span>
+            <button onClick={() => setView("help")} className="hover:text-primary hover:underline cursor-pointer">
+              Terms &amp; Conditions
+            </button>
+          </div>
+          <div>Powered By SYNTIARO</div>
         </div>
       )}
 

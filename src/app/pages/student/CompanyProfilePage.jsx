@@ -11,6 +11,8 @@ import { api } from "../../api";
 function CompanyProfilePage({ company: initialCompany, setView, userInfo }) {
   const [company, setCompany] = useState(initialCompany);
   const [companyInternships, setCompanyInternships] = useState([]);
+  const [similarCompanies, setSimilarCompanies] = useState([]);
+  const [followedCompanies, setFollowedCompanies] = useState([]);
   const [applyTarget, setApplyTarget] = useState(null);
   const [activeTab, setActiveTab] = useState("Home");
   const [appliedIds, setAppliedIds] = useState([]);
@@ -36,6 +38,21 @@ function CompanyProfilePage({ company: initialCompany, setView, userInfo }) {
           })));
         }).catch(() => {});
       }
+      api.companies().then((all) => {
+        if (!active) return;
+        const others = (all || [])
+          .filter((c) => String(c.id) !== String(initialCompany?.id))
+          .slice(0, 4)
+          .map((c) => ({
+            id: c.id,
+            name: c.name,
+            industry: c.industry || c.domain || "Software & Technology",
+            logo: (c.name || "C").slice(0, 2).toUpperCase(),
+            color: c.logoColor || "#0a66c2",
+            raw: c
+          }));
+        setSimilarCompanies(others);
+      }).catch(() => {});
       if (userInfo?.id) {
         api.applications().then((items) => {
           if (active) setAppliedIds((items || []).map((item) => Number(item.jobId)));
@@ -116,7 +133,15 @@ function CompanyProfilePage({ company: initialCompany, setView, userInfo }) {
       },
       "Easy Apply"
     ))), index < companyInternships.length - 1 && /* @__PURE__ */ React.createElement("hr", { className: "border-[#e0dfdc]" }));
-  })), companyInternships.length > 0 && /* @__PURE__ */ React.createElement("button", { className: "w-full mt-2 py-2 border-t border-[#e0dfdc] text-center text-[#0a66c2] font-semibold text-sm hover:bg-[#0a66c2]/5 transition-colors" }, "Show all jobs")), (activeTab === "Home" || activeTab === "Life") && perks.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-[#e0dfdc] p-6" }, /* @__PURE__ */ React.createElement("h2", { className: "text-xl font-semibold text-black mb-4" }, "Life at ", company.name), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2" }, perks.map((p) => /* @__PURE__ */ React.createElement("span", { key: p, className: "flex items-center gap-1.5 px-3 py-1.5 bg-[#f3f2ef] border border-[#e0dfdc] text-black/80 rounded-full text-sm font-medium" }, /* @__PURE__ */ React.createElement(Zap, { className: "w-4 h-4 text-amber-500" }), " ", p))))), /* @__PURE__ */ React.createElement("div", { className: "hidden lg:block space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-[#e0dfdc] p-5" }, /* @__PURE__ */ React.createElement("h3", { className: "font-semibold text-black mb-4" }, "Similar pages"), /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, [].map((sim) => /* @__PURE__ */ React.createElement("div", { key: sim.name, className: "flex gap-3" }, /* @__PURE__ */ React.createElement("div", { className: "w-12 h-12 rounded bg-[#f8fafc] flex items-center justify-center font-bold text-white shadow-sm flex-shrink-0", style: { backgroundColor: sim.color } }, sim.logo), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h4", { className: "font-semibold text-sm text-black hover:text-[#0a66c2] cursor-pointer" }, sim.name), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-black/60" }, sim.industry), /* @__PURE__ */ React.createElement("button", { className: "mt-1 px-3 py-1 border border-black/60 rounded-full text-black/60 font-semibold text-xs hover:bg-black/5 transition-colors" }, "Follow")))))), /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-[#e0dfdc] p-4 text-center sticky top-20" }, /* @__PURE__ */ React.createElement("p", { className: "text-xs text-black/50 text-right mb-2" }, "Ad \u2022\u2022\u2022"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-black/70 mb-3" }, "See who you know at ", /* @__PURE__ */ React.createElement("strong", null, company.name)), /* @__PURE__ */ React.createElement("div", { className: "flex justify-center mb-4" }, /* @__PURE__ */ React.createElement("img", { src: company.logoUrl, className: "w-16 h-16 rounded-full border border-[#e0dfdc]", alt: "Profile" })), /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-3" }, "Unlock your network and get hired."), /* @__PURE__ */ React.createElement("button", { className: "px-4 py-1.5 border border-[#0a66c2] text-[#0a66c2] rounded-full font-semibold text-sm hover:bg-[#0a66c2]/10 transition-colors" }, "Try Premium for free"))))));
+  })), companyInternships.length > 0 && /* @__PURE__ */ React.createElement("button", {
+  type: "button",
+  onClick: () => setView("search"),
+  className: "w-full mt-2 py-2 border-t border-[#e0dfdc] text-center text-[#0a66c2] font-semibold text-sm hover:bg-[#0a66c2]/5 transition-colors cursor-pointer"
+}, "Show all jobs")), (activeTab === "Home" || activeTab === "Life") && perks.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-[#e0dfdc] p-6" }, /* @__PURE__ */ React.createElement("h2", { className: "text-xl font-semibold text-black mb-4" }, "Life at ", company.name), /* @__PURE__ */ React.createElement("div", { className: "flex flex-wrap gap-2" }, perks.map((p) => /* @__PURE__ */ React.createElement("span", { key: p, className: "flex items-center gap-1.5 px-3 py-1.5 bg-[#f3f2ef] border border-[#e0dfdc] text-black/80 rounded-full text-sm font-medium" }, /* @__PURE__ */ React.createElement(Zap, { className: "w-4 h-4 text-amber-500" }), " ", p))))), /* @__PURE__ */ React.createElement("div", { className: "hidden lg:block space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-[#e0dfdc] p-5" }, /* @__PURE__ */ React.createElement("h3", { className: "font-semibold text-black mb-4" }, "Similar pages"), similarCompanies.length === 0 ? /* @__PURE__ */ React.createElement("p", { className: "text-xs text-black/50" }, "No other companies yet.") : /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, similarCompanies.map((sim) => /* @__PURE__ */ React.createElement("div", { key: sim.id || sim.name, className: "flex gap-3 items-center" }, /* @__PURE__ */ React.createElement("div", { className: "w-10 h-10 rounded-lg bg-[#f8fafc] flex items-center justify-center font-bold text-white text-xs shadow-xs flex-shrink-0", style: { backgroundColor: sim.color } }, sim.logo), /* @__PURE__ */ React.createElement("div", { className: "min-w-0 flex-1" }, /* @__PURE__ */ React.createElement("h4", { onClick: () => { setCompany(sim.raw); window.scrollTo({ top: 0, behavior: "smooth" }); }, className: "font-semibold text-sm text-black hover:text-[#0a66c2] cursor-pointer truncate" }, sim.name), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-black/60 truncate" }, sim.industry)), /* @__PURE__ */ React.createElement("button", { onClick: () => setFollowedCompanies(prev => prev.includes(sim.id) ? prev.filter(id => id !== sim.id) : [...prev, sim.id]), className: `px-3 py-1 border rounded-full text-xs font-semibold transition-colors cursor-pointer ${followedCompanies.includes(sim.id) ? "border-[#0a66c2] bg-[#0a66c2] text-white" : "border-black/60 text-black/60 hover:bg-black/5"}` }, followedCompanies.includes(sim.id) ? "Following" : "Follow"))))), /* @__PURE__ */ React.createElement("div", { className: "bg-white rounded-xl border border-[#e0dfdc] p-4 text-center sticky top-20" }, /* @__PURE__ */ React.createElement("p", { className: "text-xs text-black/50 text-right mb-2" }, "Ad \u2022\u2022\u2022"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-black/70 mb-3" }, "See who you know at ", /* @__PURE__ */ React.createElement("strong", null, company.name)), /* @__PURE__ */ React.createElement("div", { className: "flex justify-center mb-4" }, /* @__PURE__ */ React.createElement("img", { src: company.logoUrl, className: "w-16 h-16 rounded-full border border-[#e0dfdc]", alt: "Profile" })), /* @__PURE__ */ React.createElement("p", { className: "text-sm mb-3" }, "Unlock your network and get hired."), /* @__PURE__ */ React.createElement("button", {
+  type: "button",
+  onClick: () => setView("settings-privacy"),
+  className: "px-4 py-1.5 border border-[#0a66c2] text-[#0a66c2] rounded-full font-semibold text-sm hover:bg-[#0a66c2]/10 transition-colors cursor-pointer"
+}, "Explore Premium Plans"))))));
 }
 export {
   CompanyProfilePage

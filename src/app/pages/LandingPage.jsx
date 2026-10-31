@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Search, MapPin, Building2, ChevronRight, ArrowRight, GraduationCap, BookOpen, Users, Play, ChevronDown, ChevronUp, CheckCircle, Home as HomeIcon, Briefcase, BarChart3, Glasses, Heart, UserCheck, PenTool, DollarSign, TrendingUp, Settings, Code, Sparkles, CheckCircle2, Star, ShieldCheck } from "lucide-react";
 import { api } from "../api";
 import heroBannerImg from "../../assets/home_hero_banner.jpg";
-function LandingPage({ setView, setAuthParams, onSelectInternship }) {
+function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
   const [internships, setInternships] = useState([]);
   const [internshipError, setInternshipError] = useState("");
   const [internshipsLoading, setInternshipsLoading] = useState(true);
@@ -173,7 +173,11 @@ function LandingPage({ setView, setAuthParams, onSelectInternship }) {
         /* Search button */
         React.createElement("button", {
           type: "button",
-          onClick: () => setView("search"),
+          onClick: () => {
+            const exp = selectedExperience && selectedExperience !== "All Experience Levels" ? selectedExperience : "";
+            if (onSearch) onSearch({ query: searchQuery, location: locationQuery, category: exp });
+            else setView("search");
+          },
           className: "ml-1 px-5 sm:px-7 py-2.5 sm:py-3 bg-[#4a3aff] hover:bg-[#3d2fd6] text-white text-sm sm:text-[15px] font-bold rounded-full transition-all shadow-md hover:shadow-lg cursor-pointer flex-shrink-0 active:scale-95"
         }, "Search")
       ),
@@ -184,7 +188,10 @@ function LandingPage({ setView, setAuthParams, onSelectInternship }) {
           React.createElement("button", {
             key: cat.label,
             type: "button",
-            onClick: () => setView("search"),
+            onClick: () => {
+              if (onSearch) onSearch({ query: cat.label, department: cat.label });
+              else setView("search");
+            },
             className: "group flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm border border-[#d8d6d2] rounded-full text-sm text-black/75 font-medium hover:border-[#4a3aff]/60 hover:text-[#4a3aff] hover:bg-white hover:shadow-md transition-all cursor-pointer"
           },
             React.createElement(cat.icon, { className: "w-4 h-4 text-black/45 group-hover:text-[#4a3aff] transition-colors" }),

@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { api } from "../../api";
+import { toast } from "sonner";
 import { Search, ChevronDown, ChevronRight, ArrowLeft, MessageCircle, Mail, Book, Video, FileText, Zap, Shield, CreditCard, User, HelpCircle, CheckCircle, ExternalLink, Phone, Clock, Star } from "lucide-react";
 
 const FAQ_DATA = [
@@ -45,10 +47,10 @@ const FAQ_DATA = [
 ];
 
 const GUIDES = [
-  { title: "How to Build a Winning Resume", icon: FileText, tag: "Career Prep", time: "8 min read", color: "bg-blue-50 text-blue-600" },
-  { title: "Cracking the Interview: Complete Playbook", icon: MessageCircle, tag: "Interviews", time: "12 min read", color: "bg-emerald-50 text-emerald-600" },
-  { title: "Optimising Your InternDesk Profile", icon: User, tag: "Profile Tips", time: "5 min read", color: "bg-violet-50 text-violet-600" },
-  { title: "Understanding Application Statuses", icon: CheckCircle, tag: "Applications", time: "3 min read", color: "bg-amber-50 text-amber-600" },
+  { title: "How to Build a Winning Resume", icon: FileText, tag: "Career Prep", time: "8 min read", color: "bg-blue-50 text-blue-600", targetView: "resume-builder" },
+  { title: "Cracking the Interview: Complete Playbook", icon: MessageCircle, tag: "Interviews", time: "12 min read", color: "bg-emerald-50 text-emerald-600", targetView: "career-resources" },
+  { title: "Optimising Your InternDesk Profile", icon: User, tag: "Profile Tips", time: "5 min read", color: "bg-violet-50 text-violet-600", targetView: "profile" },
+  { title: "Understanding Application Statuses", icon: CheckCircle, tag: "Applications", time: "3 min read", color: "bg-amber-50 text-amber-600", targetView: "applications" },
 ];
 
 function AccordionItem({ question, answer }) {
@@ -92,11 +94,21 @@ export function HelpPage({ setView }) {
     )
   })).filter(cat => (activeCategory === "all" || cat.category === activeCategory) && cat.questions.length > 0);
 
-  const handleContactSubmit = (e) => {
+  const handleContactSubmit = async (e) => {
     e.preventDefault();
-    setMessageSent(true);
-    setContactForm({ subject: "", message: "" });
-    setTimeout(() => setMessageSent(false), 4000);
+    try {
+      await api.createNotification({
+        title: contactForm.subject || "Support Inquiry",
+        message: contactForm.message,
+        type: "support"
+      });
+      setMessageSent(true);
+      toast.success("Your message has been sent to support! We will respond shortly.");
+      setContactForm({ subject: "", message: "" });
+      setTimeout(() => setMessageSent(false), 4000);
+    } catch (err) {
+      toast.error(err.message || "Failed to send support message.");
+    }
   };
 
   return /* @__PURE__ */ React.createElement(
@@ -186,6 +198,7 @@ export function HelpPage({ setView }) {
               "div",
               {
                 key: guide.title,
+                onClick: () => setView(guide.targetView || "career-resources"),
                 className: "bg-card border border-border rounded-xl p-4 hover:shadow-md transition-all cursor-pointer group hover:border-primary/30"
               },
               /* @__PURE__ */ React.createElement(

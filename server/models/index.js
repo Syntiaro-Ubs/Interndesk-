@@ -26,4 +26,8 @@ Application.belongsTo(Internship, { foreignKey: 'jobId', as: 'internship' });
 Application.hasMany(ApplicationMessage, { foreignKey: 'applicationId', as: 'messages' });
 ApplicationMessage.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 
+// User has many Applications (student)
+User.hasMany(Application, { foreignKey: 'studentId', as: 'applications' });
+Application.belongsTo(User, { foreignKey: 'studentId', as: 'student' });
+
 export { sequelize, User, Company, Internship, Application, ApplicationMessage, ResumeAsset, Notification };
