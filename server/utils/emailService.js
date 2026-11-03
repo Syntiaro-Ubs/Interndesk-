@@ -13,11 +13,13 @@ export function isEmailConfigured() {
   if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
     return true;
   }
+  const cleanUser = String(process.env.GMAIL_USER || '').trim();
+  const cleanPass = String(process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
   if (
-    process.env.GMAIL_USER &&
-    process.env.GMAIL_APP_PASSWORD &&
-    process.env.GMAIL_USER !== 'your_gmail@gmail.com' &&
-    process.env.GMAIL_APP_PASSWORD !== 'your_16_char_app_password'
+    cleanUser &&
+    cleanPass &&
+    cleanUser !== 'your_gmail@gmail.com' &&
+    cleanPass !== 'your_16_char_app_password'
   ) {
     return true;
   }
@@ -43,11 +45,13 @@ export function getTransporter() {
       },
     });
   } else {
+    const cleanUser = String(process.env.GMAIL_USER || '').trim();
+    const cleanPass = String(process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
     _transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
+        user: cleanUser,
+        pass: cleanPass,
       },
     });
   }
@@ -68,18 +72,26 @@ export function storeOtp(email, otp) {
 }
 
 export function verifyOtp(email, otp) {
-  const emailKey = email.toLowerCase().trim();
+  const emailKey = String(email || '').toLowerCase().trim();
   const inputOtp = String(otp || '').trim();
+
+  // In development mode, allow instant bypass with standard test codes
+  if (process.env.NODE_ENV === 'development' && (inputOtp === '123456' || inputOtp === '000000')) {
+    console.log(`[AUTH] Development master code accepted for ${emailKey}`);
+    return { valid: true };
+  }
 
   const record = otpStore.get(emailKey);
   if (!record) {
-    return { valid: false, reason: 'No OTP found for this email. Please request a new code.' };
+    console.warn(`[AUTH] No active OTP found for ${emailKey} (server may have restarted). Available emails:`, [...otpStore.keys()]);
+    return { valid: false, reason: 'Verification code not found or server restarted. Please click "Resend Code" to receive a new code.' };
   }
   if (Date.now() > record.expiresAt) {
     otpStore.delete(emailKey);
-    return { valid: false, reason: 'Verification code has expired. Please request a new code.' };
+    return { valid: false, reason: 'Verification code has expired. Please click "Resend Code".' };
   }
   if (record.otp !== inputOtp) {
+    console.warn(`[AUTH] OTP mismatch for ${emailKey}. Provided: "${inputOtp}", Expected: "${record.otp}"`);
     return { valid: false, reason: 'Invalid verification code. Please check your email and try again.' };
   }
   otpStore.delete(emailKey); // one-time use

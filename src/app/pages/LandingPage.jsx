@@ -69,7 +69,6 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
 
   const itCategories = categoryGroups("IT");
   const nonItCategories = categoryGroups("NON IT");
-  const heroCategories = [...new Set(internships.map((job) => job.department || job.category).filter(Boolean))].slice(0, 5).map((label) => ({ label, icon: Briefcase }));
   const quickSearches = [...itCategories, ...nonItCategories].slice(0, 3).map((item) => ({ label: item.name, count: `${item.count} open internships` }));
 
   const filteredTrackJobs = internships.filter((job) => {
@@ -81,8 +80,8 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
   });
   return /* @__PURE__ */ React.createElement("div", { className: "bg-[#f3f2ef] min-h-screen text-[#1f2937] font-sans antialiased selection:bg-[#0a66c2]/20" },
 
-  /* â”€â”€ HERO SECTION WITH BANNER BACKGROUND â”€â”€ */
-  React.createElement("section", { className: "relative overflow-hidden border-b border-[#e0dfdc] pt-14 pb-12 lg:pt-20 lg:pb-16" },
+  /* ── HERO SECTION WITH BANNER BACKGROUND ── */
+  React.createElement("section", { className: "relative border-b border-[#e0dfdc] pt-14 pb-24 sm:pb-32 lg:pt-20 lg:pb-36" },
 
     /* Banner Background Image with balanced lighting overlays */
     React.createElement("div", { className: "absolute inset-0 z-0 pointer-events-none overflow-hidden" },
@@ -112,11 +111,11 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
 
       /* Subtitle */
       React.createElement("p", { className: "mt-3 text-base sm:text-lg text-[#334155] font-medium max-w-xl mx-auto" },
-        "Explore curated roles from top companies â€” your next chapter starts here"
+        "Explore curated roles from top companies — your next chapter starts here"
       ),
 
       /* Search Bar */
-      React.createElement("div", { className: "mt-8 bg-white/95 backdrop-blur-md rounded-full border border-[#cbd5e1] shadow-xl shadow-slate-900/10 hover:shadow-2xl transition-shadow flex items-center px-2 py-1.5 sm:px-3 sm:py-2 gap-0 relative" },
+      React.createElement("div", { className: "mt-8 bg-white/95 backdrop-blur-md rounded-full border border-[#cbd5e1] shadow-xl shadow-slate-900/10 hover:shadow-2xl transition-shadow flex items-center px-2 py-1.5 sm:px-3 sm:py-2 gap-0 relative z-30" },
 
         /* Skills / Designation input */
         React.createElement("div", { className: "flex items-center gap-2 flex-1 min-w-0 px-3" },
@@ -143,7 +142,7 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
             React.createElement("span", null, selectedExperience || "Select experience"),
             React.createElement(ChevronDown, { className: `w-4 h-4 transition-transform ${experienceOpen ? "rotate-180" : ""}` })
           ),
-          experienceOpen && React.createElement("div", { className: "absolute top-full left-0 mt-2 w-44 bg-white border border-[#e0dfdc] rounded-xl shadow-xl z-50 py-1 animate-in fade-in slide-in-from-top-2 duration-200" },
+          experienceOpen && React.createElement("div", { className: "absolute top-full left-0 mt-2 w-52 bg-white border border-[#cbd5e1] rounded-2xl shadow-2xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-200" },
             experienceOptions.map((opt) =>
               React.createElement("button", {
                 key: opt,
@@ -180,25 +179,6 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
           },
           className: "ml-1 px-5 sm:px-7 py-2.5 sm:py-3 bg-[#4a3aff] hover:bg-[#3d2fd6] text-white text-sm sm:text-[15px] font-bold rounded-full transition-all shadow-md hover:shadow-lg cursor-pointer flex-shrink-0 active:scale-95"
         }, "Search")
-      ),
-
-      /* Category chips */
-      React.createElement("div", { className: "mt-8 flex flex-wrap justify-center gap-2.5 sm:gap-3" },
-        heroCategories.map((cat) =>
-          React.createElement("button", {
-            key: cat.label,
-            type: "button",
-            onClick: () => {
-              if (onSearch) onSearch({ query: cat.label, department: cat.label });
-              else setView("search");
-            },
-            className: "group flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm border border-[#d8d6d2] rounded-full text-sm text-black/75 font-medium hover:border-[#4a3aff]/60 hover:text-[#4a3aff] hover:bg-white hover:shadow-md transition-all cursor-pointer"
-          },
-            React.createElement(cat.icon, { className: "w-4 h-4 text-black/45 group-hover:text-[#4a3aff] transition-colors" }),
-            React.createElement("span", null, cat.label),
-            React.createElement(ChevronRight, { className: "w-3.5 h-3.5 text-black/35 group-hover:text-[#4a3aff] transition-colors" })
-          )
-        )
       )
     )
   ),

@@ -282,8 +282,14 @@ function AuthPage({
         setStep("email-verification");
       } else {
         const result = await api.login({ email, password, role });
-        saveCsrfToken(result.csrfToken);
         const { user } = result;
+
+        if (role !== "admin" && user.role === "admin") {
+          toast.error("Super Admin credentials can only be used on the Super Admin tab. Please switch to the Super Admin tab.");
+          return;
+        }
+
+        saveCsrfToken(result.csrfToken);
         setUserInfo({ ...user, profileComplete: Boolean(user.profileComplete) });
         setUserRole(user.role);
         setView(user.role === "admin" ? "admin" : user.role === "student" ? "student-home" : "company-portal");
@@ -302,9 +308,13 @@ function AuthPage({
   const authImage = role === "student" ? studentAuthImg : employerAuthImg;
   const brandTitle = role === "student"
     ? (mode === "login" ? "Step into your future." : "Launch your career journey.")
+    : role === "admin"
+    ? "Platform Control & Governance."
     : (mode === "login" ? "Connecting forward-thinking companies." : "Build your dream team with top campus talent.");
   const brandDesc = role === "student"
     ? (mode === "login" ? "Find the perfect internship, track applications, and unlock exclusive opportunities." : "Join students discovering verified internship opportunities.")
+    : role === "admin"
+    ? "Super Admin access to oversee platform operations, regulate listings, and manage permissions."
     : (mode === "login" ? "Access your candidate pipeline, post new roles, and hire pre-vetted interns." : "Connect with candidates and manage your internship listings.");
 
   const brandLeft = /* @__PURE__ */ React.createElement("div", { className: "hidden md:flex md:w-1/2 relative flex-col justify-between overflow-hidden bg-[#0F2260]" },
@@ -323,8 +333,8 @@ function AuthPage({
     /* Content over image */
     /* @__PURE__ */ React.createElement("div", { className: "relative z-10 p-10 lg:p-14 flex flex-col h-full justify-between" },
       React.createElement("div", { className: "inline-flex items-center gap-2 self-start px-3.5 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-medium border border-white/20 shadow-sm" },
-        role === "student" ? React.createElement(GraduationCap, { className: "w-4 h-4 text-white" }) : React.createElement(Building2, { className: "w-4 h-4 text-white" }),
-        role === "student" ? "Student & Graduate Portal" : role === "admin" ? "Administration & Control Portal" : "Recruiter & Employer Portal"
+        role === "student" ? React.createElement(GraduationCap, { className: "w-4 h-4 text-white" }) : role === "admin" ? React.createElement(ShieldCheck, { className: "w-4 h-4 text-white" }) : React.createElement(Building2, { className: "w-4 h-4 text-white" }),
+        role === "student" ? "Student & Graduate Portal" : role === "admin" ? "Super Admin Control Center" : "Recruiter & Employer Portal"
       ),
       /* @__PURE__ */ React.createElement("div", { className: "mt-auto mb-8" },
         /* @__PURE__ */ React.createElement("h1", { className: "text-3xl lg:text-4xl font-light text-white mb-2 leading-tight tracking-wide drop-shadow-md" }, brandTitle),
@@ -349,7 +359,7 @@ function AuthPage({
         /* @__PURE__ */ React.createElement("div", { className: "md:hidden w-full h-32 relative rounded-2xl overflow-hidden mb-5 shadow-sm border border-border/60" },
           /* @__PURE__ */ React.createElement("img", { src: authImage, alt: role, className: "w-full h-full object-cover object-top" }),
           /* @__PURE__ */ React.createElement("div", { className: "absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex flex-col justify-end p-3.5" },
-            /* @__PURE__ */ React.createElement("span", { className: "text-white text-[11px] font-medium tracking-wide uppercase text-primary/90 opacity-90" }, role === "student" ? "Student Access" : "Employer Access"),
+            /* @__PURE__ */ React.createElement("span", { className: "text-white text-[11px] font-medium tracking-wide uppercase text-primary/90 opacity-90" }, role === "student" ? "Student Access" : role === "admin" ? "Super Admin Access" : "Employer Access"),
             /* @__PURE__ */ React.createElement("h3", { className: "text-white text-sm font-semibold leading-snug drop-shadow-sm" }, brandTitle)
           )
         ),
@@ -357,7 +367,7 @@ function AuthPage({
           /* @__PURE__ */ React.createElement("button", { onClick: () => setView("landing"), className: "hover:opacity-80 transition-opacity cursor-pointer" },
             /* @__PURE__ */ React.createElement("img", { src: logoUrl, alt: "InternDesk", className: "h-8" })
           )
-        ), /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "mb-3 sm:mb-5 text-center" }, /* @__PURE__ */ React.createElement("h2", { className: "text-2xl font-medium text-foreground mb-1 sm:mb-2" }, mode === "login" ? "Welcome back" : "Create an account"), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-muted-foreground" }, mode === "login" ? "Enter your details to access your account." : "Join InternDesk and start your journey.")), /* @__PURE__ */ React.createElement("div", { className: "flex p-1 bg-background rounded-xl mb-3 sm:mb-5" }, /* @__PURE__ */ React.createElement(
+        ), /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "mb-3 sm:mb-5 text-center" }, /* @__PURE__ */ React.createElement("h2", { className: "text-2xl font-medium text-foreground mb-1 sm:mb-2" }, mode === "login" ? (role === "admin" ? "Super Admin Sign In" : "Welcome back") : "Create an account"), /* @__PURE__ */ React.createElement("p", { className: "text-xs text-muted-foreground" }, mode === "login" ? (role === "admin" ? "Enter your Super Admin credentials to access the control panel." : "Enter your details to access your account.") : "Join InternDesk and start your journey.")), /* @__PURE__ */ React.createElement("div", { className: "flex p-1 bg-background rounded-xl mb-3 sm:mb-5" }, /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => setRole("student"),
@@ -378,10 +388,10 @@ function AuthPage({
     {
       type: "button",
       onClick: () => setRole("admin"),
-      className: `flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-all ${role === "admin" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground cursor-pointer"}`
+      className: `flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${role === "admin" ? "bg-card text-foreground shadow-sm font-semibold" : "text-muted-foreground hover:text-foreground cursor-pointer"}`
     },
-    /* @__PURE__ */ React.createElement(ShieldCheck, { className: "w-4 h-4" }),
-    " Admin"
+    /* @__PURE__ */ React.createElement(ShieldCheck, { className: "w-4 h-4 text-[#0a66c2]" }),
+    " Super Admin"
   )), /* @__PURE__ */ React.createElement("div", { className: "space-y-3 mb-3 sm:mb-5" }, /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => { setGoogleEmailInput(""); setGoogleError(""); setGoogleModalOpen(true); }, className: "w-full flex items-center justify-center gap-3 px-4 py-2.5 border border-border rounded-xl text-sm font-medium text-foreground hover:bg-background transition-colors" }, /* @__PURE__ */ React.createElement("svg", { viewBox: "0 0 24 24", width: "20", height: "20", xmlns: "http://www.w3.org/2000/svg" }, /* @__PURE__ */ React.createElement("path", { d: "M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z", fill: "#4285F4" }), /* @__PURE__ */ React.createElement("path", { d: "M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z", fill: "#34A853" }), /* @__PURE__ */ React.createElement("path", { d: "M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z", fill: "#FBBC05" }), /* @__PURE__ */ React.createElement("path", { d: "M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z", fill: "#EA4335" })), "Continue with Google")), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 mb-3 sm:mb-5" }, /* @__PURE__ */ React.createElement("div", { className: "flex-1 h-px bg-border" }), /* @__PURE__ */ React.createElement("span", { className: "text-xs text-muted-foreground uppercase tracking-wider font-medium" }, "Or"), /* @__PURE__ */ React.createElement("div", { className: "flex-1 h-px bg-border" })), /* @__PURE__ */ React.createElement("form", { onSubmit: handleSubmit, className: "space-y-3 sm:space-y-4" }, mode === "register" && /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-3" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block text-sm font-medium text-foreground mb-1.5" }, "First Name"), /* @__PURE__ */ React.createElement(
     "input",
     {
@@ -448,7 +458,7 @@ function AuthPage({
       className: `w-full pl-10 pr-4 py-2.5 bg-background border ${domainError ? "border-red-500" : "border-border"} focus:border-primary rounded-xl text-sm outline-none transition-colors`,
       placeholder: companyDomain ? `name@${cleanDomain(companyDomain) || "company.com"}` : "name@company.com"
     }
-  )), domainError ? /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-red-500 mt-1 flex items-center gap-1 font-medium" }, /* @__PURE__ */ React.createElement("span", null, "\u2715"), " ", domainError) : /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-muted-foreground mt-1" }, "Must match your official corporate domain (personal email providers not allowed)."))) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block text-sm font-medium text-foreground mb-1.5" }, role === "company" ? "Work Email" : "Email Address"), /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(Mail, { className: "w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" }), /* @__PURE__ */ React.createElement(
+  )), domainError ? /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-red-500 mt-1 flex items-center gap-1 font-medium" }, /* @__PURE__ */ React.createElement("span", null, "\u2715"), " ", domainError) : /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-muted-foreground mt-1" }, "Must match your official corporate domain (personal email providers not allowed)."))) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { className: "block text-sm font-medium text-foreground mb-1.5" }, role === "company" ? "Work Email" : role === "admin" ? "Super Admin Email" : "Email Address"), /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(Mail, { className: "w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" }), /* @__PURE__ */ React.createElement(
     "input",
     {
       type: "email",
@@ -456,9 +466,9 @@ function AuthPage({
       value: email,
       onChange: (e) => setEmail(e.target.value),
       className: "w-full pl-10 pr-4 py-2.5 bg-background border border-border focus:border-primary rounded-xl text-sm outline-none transition-colors",
-      placeholder: role === "company" ? "Work Email" : "Email Address"
+      placeholder: role === "company" ? "Work Email" : role === "admin" ? "admin@interndesk.in" : "Email Address"
     }
-  ))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex justify-between items-center mb-1.5" }, /* @__PURE__ */ React.createElement("label", { className: "block text-sm font-medium text-foreground" }, "Password"), mode === "login" && /* @__PURE__ */ React.createElement("a", { href: "#", className: "text-xs text-primary font-medium hover:underline" }, "Forgot?")), /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(
+  ))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { className: "flex justify-between items-center mb-1.5" }, /* @__PURE__ */ React.createElement("label", { className: "block text-sm font-medium text-foreground" }, role === "admin" ? "Super Admin Password" : "Password"), mode === "login" && /* @__PURE__ */ React.createElement("a", { href: "#", className: "text-xs text-primary font-medium hover:underline" }, "Forgot?")), /* @__PURE__ */ React.createElement("div", { className: "relative" }, /* @__PURE__ */ React.createElement(
     "input",
     {
       type: showPassword ? "text" : "password",
@@ -466,7 +476,7 @@ function AuthPage({
       value: password,
       onChange: (e) => setPassword(e.target.value),
       className: "w-full px-4 pr-11 py-2.5 bg-background border border-border focus:border-primary rounded-xl text-sm outline-none transition-colors",
-      placeholder: "Password"
+      placeholder: role === "admin" ? "Super Admin Password" : "Password"
     }
   ), /* @__PURE__ */ React.createElement(
     "button",

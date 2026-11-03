@@ -378,7 +378,10 @@ export const api = {
     if (!key) throw new ApiError('No uploaded resume was found.', 'RESUME_NOT_FOUND', 404);
     const user = getCurrentUser();
     const headers = { 'X-User-Email': user?.email || '' };
-    const response = await fetch(`${BASE_URL}/resumes/${encodeURIComponent(key)}`, { headers });
+    let response = await fetch(`${BASE_URL}/resumes/${encodeURIComponent(key)}`, { headers });
+    if (!response.ok && response.status === 404) {
+      response = await fetch(`${BASE_URL}/applications/resumes/${encodeURIComponent(key)}`, { headers });
+    }
     if (!response.ok) throw new ApiError('Could not load the uploaded resume.', 'RESUME_LOAD_FAILED', response.status);
     return response.blob();
   },
