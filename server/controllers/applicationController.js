@@ -288,7 +288,12 @@ export const getCompanyApplications = async (req, res) => {
       internship: app.jobTitle || app.title || 'Internship',
       internshipId: app.jobId,
       status: app.status === 'Applied' ? 'Review' : app.status,
-      applied: app.appliedAt ? new Date(app.appliedAt).toLocaleDateString() : 'Today',
+      applied: (() => {
+        if (!app.appliedAt) return 'Today';
+        const d = new Date(app.appliedAt);
+        if (isNaN(d.getTime())) return 'Today';
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+      })(),
       appliedAt: app.appliedAt,
       resumeKey: app.resumeKey || 'resume.pdf',
       score: app.score == null ? null : Number(app.score)

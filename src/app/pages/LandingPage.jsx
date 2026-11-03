@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Search, MapPin, Building2, ChevronRight, ArrowRight, GraduationCap, BookOpen, Users, Play, ChevronDown, ChevronUp, CheckCircle, Home as HomeIcon, Briefcase, BarChart3, Glasses, Heart, UserCheck, PenTool, DollarSign, TrendingUp, Settings, Code, Sparkles, CheckCircle2, Star, ShieldCheck } from "lucide-react";
 import { api } from "../api";
 import heroBannerImg from "../../assets/home_hero_banner.jpg";
@@ -11,6 +11,22 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
   const [locationQuery, setLocationQuery] = useState("");
   const [experienceOpen, setExperienceOpen] = useState(false);
   const [selectedExperience, setSelectedExperience] = useState("");
+  const experienceRef = useRef(null);
+
+  useEffect(() => {
+    if (!experienceOpen) return;
+    const handleClickOutside = (e) => {
+      if (experienceRef.current && !experienceRef.current.contains(e.target)) {
+        setExperienceOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [experienceOpen]);
 
   useEffect(() => {
     let active = true;
@@ -133,7 +149,7 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
         React.createElement("div", { className: "hidden sm:block w-px h-7 bg-[#d4d2cf] flex-shrink-0" }),
 
         /* Experience dropdown */
-        React.createElement("div", { className: "hidden sm:block relative" },
+        React.createElement("div", { ref: experienceRef, className: "hidden sm:block relative" },
           React.createElement("button", {
             type: "button",
             onClick: () => setExperienceOpen(!experienceOpen),
@@ -142,12 +158,21 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
             React.createElement("span", null, selectedExperience || "Select experience"),
             React.createElement(ChevronDown, { className: `w-4 h-4 transition-transform ${experienceOpen ? "rotate-180" : ""}` })
           ),
-          experienceOpen && React.createElement("div", { className: "absolute top-full left-0 mt-2 w-52 bg-white border border-[#cbd5e1] rounded-2xl shadow-2xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-200" },
+          experienceOpen && React.createElement("div", { className: "absolute top-full left-0 mt-2 w-56 bg-white border border-[#cbd5e1] rounded-2xl shadow-2xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden" },
             experienceOptions.map((opt) =>
               React.createElement("button", {
                 key: opt,
                 type: "button",
-                onClick: () => { setSelectedExperience(opt); setExperienceOpen(false); },
+                onMouseDown: (e) => {
+                  e.stopPropagation();
+                  setSelectedExperience(opt);
+                  setExperienceOpen(false);
+                },
+                onClick: (e) => {
+                  e.stopPropagation();
+                  setSelectedExperience(opt);
+                  setExperienceOpen(false);
+                },
                 className: `w-full text-left px-4 py-2.5 text-sm hover:bg-[#f3f2ef] transition-colors cursor-pointer ${selectedExperience === opt ? "text-[#4a3aff] font-semibold bg-[#f3f0ff]" : "text-black/70"}`
               }, opt)
             )
@@ -174,7 +199,7 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
           type: "button",
           onClick: () => {
             const exp = selectedExperience && selectedExperience !== "All Experience Levels" ? selectedExperience : "";
-            if (onSearch) onSearch({ query: searchQuery, location: locationQuery, category: exp });
+            if (onSearch) onSearch({ query: searchQuery, location: locationQuery, experience: exp });
             else setView("search");
           },
           className: "ml-1 px-5 sm:px-7 py-2.5 sm:py-3 bg-[#4a3aff] hover:bg-[#3d2fd6] text-white text-sm sm:text-[15px] font-bold rounded-full transition-all shadow-md hover:shadow-lg cursor-pointer flex-shrink-0 active:scale-95"
@@ -182,12 +207,6 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
       )
     )
   ),
-
-  /* Close the experience dropdown when clicking outside */
-  experienceOpen && React.createElement("div", {
-    className: "fixed inset-0 z-40",
-    onClick: () => setExperienceOpen(false)
-  }),
 
   /* @__PURE__ */ React.createElement("section", { className: "py-6 bg-[#f3f2ef] border-b border-[#e0dfdc]" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-[1128px] mx-auto px-4 sm:px-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col md:flex-row md:items-center justify-between mb-6 gap-2" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h2", { className: "text-2xl sm:text-3xl font-extralight text-foreground" }, "Find the right internship or job for you"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-black/60 mt-1" }, "Browse open roles by domain specialties")), /* @__PURE__ */ React.createElement(
     "button",
