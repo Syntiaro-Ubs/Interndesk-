@@ -77,7 +77,10 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
 
   const loadInternships = useCallback(() => {
     setInternshipsLoading(true);
-    api.adminJobs({ status: internshipFilter === "all" ? undefined : internshipFilter, search: internshipSearch || undefined, page: internshipPage, limit: 10 })
+    const params = { page: internshipPage, limit: 10 };
+    if (internshipFilter && internshipFilter !== "all") params.status = internshipFilter;
+    if (internshipSearch?.trim()) params.search = internshipSearch.trim();
+    api.adminJobs(params)
       .then(data => { setAllInternships(data.jobs || []); setAllInternshipsTotal(data.total || 0); })
       .catch(() => toast.error("Failed to load internships"))
       .finally(() => setInternshipsLoading(false));
@@ -87,7 +90,8 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
 
   const loadCompanies = useCallback(() => {
     setCompaniesLoading(true);
-    const params = { search: companySearch || undefined, page: companyPage, limit: 10 };
+    const params = { page: companyPage, limit: 10 };
+    if (companySearch?.trim()) params.search = companySearch.trim();
     if (companyFilter === "verified") params.verified = "true";
     if (companyFilter === "unverified") params.verified = "false";
     api.adminCompanies(params)
@@ -100,7 +104,9 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
 
   const loadStudents = useCallback(() => {
     setStudentsLoading(true);
-    api.adminStudents({ search: studentSearch || undefined, page: studentPage, limit: 10 })
+    const params = { page: studentPage, limit: 10 };
+    if (studentSearch?.trim()) params.search = studentSearch.trim();
+    api.adminStudents(params)
       .then(data => { setStudents(data.students || []); setStudentsTotal(data.total || 0); })
       .catch(() => toast.error("Failed to load students"))
       .finally(() => setStudentsLoading(false));
@@ -432,22 +438,46 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
-                  <div style={S.statCard}>
+                  <div
+                    onClick={() => setSection("students")}
+                    style={{ ...S.statCard, cursor: "pointer", transition: "all 0.2s ease" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#0a66c2"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(10, 102, 194, 0.12)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e0e0e0"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
+                    title="Click to view Students"
+                  >
                     <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalStudents?.toLocaleString() || 0}</div>
                     <div style={{ fontSize: 12, color: "#717182", marginTop: 4 }}>Total Students</div>
                     <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>+{stats?.stats?.newStudents || 0} last 30 days</div>
                   </div>
-                  <div style={S.statCard}>
+                  <div
+                    onClick={() => setSection("companies")}
+                    style={{ ...S.statCard, cursor: "pointer", transition: "all 0.2s ease" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#0a66c2"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(10, 102, 194, 0.12)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e0e0e0"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
+                    title="Click to view Companies"
+                  >
                     <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalCompanies?.toLocaleString() || 0}</div>
                     <div style={{ fontSize: 12, color: "#717182", marginTop: 4 }}>Companies</div>
                     <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>+{stats?.stats?.newCompanies || 0} last 30 days</div>
                   </div>
-                  <div style={S.statCard}>
+                  <div
+                    onClick={() => setSection("internships")}
+                    style={{ ...S.statCard, cursor: "pointer", transition: "all 0.2s ease" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#0a66c2"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(10, 102, 194, 0.12)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e0e0e0"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
+                    title="Click to view Internships"
+                  >
                     <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalJobs?.toLocaleString() || 0}</div>
                     <div style={{ fontSize: 12, color: "#717182", marginTop: 4 }}>Internships Posted</div>
                     <div style={{ fontSize: 11, color: "#fbbf24", marginTop: 4 }}>{stats?.stats?.pendingReview || 0} in review</div>
                   </div>
-                  <div style={S.statCard}>
+                  <div
+                    onClick={() => setSection("internships")}
+                    style={{ ...S.statCard, cursor: "pointer", transition: "all 0.2s ease" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#0a66c2"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(10, 102, 194, 0.12)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e0e0e0"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
+                    title="Click to view Applications"
+                  >
                     <div style={{ fontSize: 28, fontWeight: 700, color: "#030213" }}>{stats?.stats?.totalApplications?.toLocaleString() || 0}</div>
                     <div style={{ fontSize: 12, color: "#717182", marginTop: 4 }}>Applications</div>
                     <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>+{stats?.stats?.newApplications || 0} last 30 days</div>
@@ -497,15 +527,15 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                     <h3 style={{ fontSize: 16, fontWeight: 700, color: "#030213", marginBottom: 4 }}>Internship status</h3>
                     <p style={{ fontSize: 12, color: "#717182", marginBottom: 16 }}>Across all {stats?.stats?.totalJobs?.toLocaleString() || 0} postings</p>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                      <div style={{ textAlign: "center" }}>
+                      <div onClick={() => setSection("internships")} style={{ textAlign: "center", cursor: "pointer", padding: "8px", borderRadius: "8px" }} title="View Active Internships">
                         <div style={{ fontSize: 32, fontWeight: 700, color: "#0a66c2" }}>{stats?.stats?.activeJobs || 0}</div>
                         <div style={{ fontSize: 12, color: "#717182" }}>Active</div>
                       </div>
                       <div>
-                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>🟢 Active</span><span style={{ fontWeight: 700 }}>{stats?.stats?.activeJobs || 0}</span></div>
-                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>🟡 In Review</span><span style={{ fontWeight: 700 }}>{stats?.stats?.pendingReview || 0}</span></div>
-                        <div style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>🔴 Rejected</span><span style={{ fontWeight: 700 }}>{stats?.stats?.rejectedJobs || 0}</span></div>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>⚪ Closed</span><span style={{ fontWeight: 700 }}>{stats?.stats?.closedJobs || 0}</span></div>
+                        <div onClick={() => setSection("internships")} style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12, cursor: "pointer" }} title="View Active Internships"><span>🟢 Active</span><span style={{ fontWeight: 700 }}>{stats?.stats?.activeJobs || 0}</span></div>
+                        <div onClick={() => setSection("jobs")} style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12, cursor: "pointer" }} title="View Pending Job Reviews"><span>🟡 In Review</span><span style={{ fontWeight: 700 }}>{stats?.stats?.pendingReview || 0}</span></div>
+                        <div onClick={() => setSection("internships")} style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 12, cursor: "pointer" }} title="View All Internships"><span>🔴 Rejected</span><span style={{ fontWeight: 700 }}>{stats?.stats?.rejectedJobs || 0}</span></div>
+                        <div onClick={() => setSection("internships")} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, cursor: "pointer" }} title="View All Internships"><span>⚪ Closed</span><span style={{ fontWeight: 700 }}>{stats?.stats?.closedJobs || 0}</span></div>
                       </div>
                     </div>
                   </div>
@@ -514,7 +544,10 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                 {/* Bottom row: Top jobs, recent companies, new students */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
                   <div style={S.card}>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", marginBottom: 14 }}>Top internships</h3>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", margin: 0 }}>Top internships</h3>
+                      <button onClick={() => setSection("internships")} style={{ fontSize: 11, color: "#0a66c2", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>View all →</button>
+                    </div>
                     {(stats?.topJobs || []).slice(0, 4).map((job, i) => (
                       <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: i < 3 ? "1px solid #e0e0e0" : "none" }}>
                         <div style={{ fontWeight: 600, fontSize: 12, color: "#030213", marginBottom: 2 }}>{job.title}</div>
@@ -527,7 +560,10 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                     {(stats?.topJobs || []).length === 0 && <p style={{ fontSize: 12, color: "#717182" }}>No internships yet</p>}
                   </div>
                   <div style={S.card}>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", marginBottom: 14 }}>Recent companies</h3>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", margin: 0 }}>Recent companies</h3>
+                      <button onClick={() => setSection("companies")} style={{ fontSize: 11, color: "#0a66c2", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>View all →</button>
+                    </div>
                     {(stats?.recentCompanies || []).slice(0, 4).map((c, i) => (
                       <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: i < 3 ? "1px solid #e0e0e0" : "none" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -542,7 +578,10 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                     {(stats?.recentCompanies || []).length === 0 && <p style={{ fontSize: 12, color: "#717182" }}>No companies yet</p>}
                   </div>
                   <div style={S.card}>
-                    <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", marginBottom: 14 }}>New students</h3>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", margin: 0 }}>New students</h3>
+                      <button onClick={() => setSection("students")} style={{ fontSize: 11, color: "#0a66c2", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>View all →</button>
+                    </div>
                     {(stats?.recentStudents || []).slice(0, 4).map((s, i) => (
                       <div key={i} style={{ marginBottom: 12, paddingBottom: 12, borderBottom: i < 3 ? "1px solid #e0e0e0" : "none" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>

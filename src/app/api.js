@@ -153,7 +153,22 @@ async function request(method, path, body = null, extraHeaders = {}) {
   }
 }
 
-const get  = (path, qs)  => request('GET',    `${path}${qs ? '?' + new URLSearchParams(qs) : ''}`);
+function buildQueryString(params) {
+  if (!params) return '';
+  if (typeof params === 'string') {
+    return params.startsWith('?') ? params : `?${params}`;
+  }
+  const searchParams = new URLSearchParams();
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined && val !== null && val !== '' && val !== 'undefined' && val !== 'null') {
+      searchParams.append(key, String(val));
+    }
+  }
+  const str = searchParams.toString();
+  return str ? `?${str}` : '';
+}
+
+const get  = (path, qs)  => request('GET',    `${path}${buildQueryString(qs)}`);
 const post = (path, body) => request('POST',   path, body);
 const put  = (path, body) => request('PUT',    path, body);
 const patch= (path, body) => request('PATCH',  path, body);
@@ -525,29 +540,17 @@ export const api = {
 
   // ── Admin ───────────────────────────────────────────────────
   adminStats: async () => get('/admin/stats'),
-  adminJobs: async (params = {}) => {
-    const q = new URLSearchParams(params).toString();
-    return get(`/admin/jobs${q ? '?' + q : ''}`);
-  },
+  adminJobs: async (params = {}) => get('/admin/jobs', params),
   adminUpdateJobStatus: async (id, status, reason) =>
     patch(`/admin/jobs/${id}/status`, { status, reason }),
   adminDeleteJob: async (id) => del(`/admin/jobs/${id}`),
-  adminCompanies: async (params = {}) => {
-    const q = new URLSearchParams(params).toString();
-    return get(`/admin/companies${q ? '?' + q : ''}`);
-  },
+  adminCompanies: async (params = {}) => get('/admin/companies', params),
   adminVerifyCompany: async (id, isVerified) =>
     patch(`/admin/companies/${id}/verify`, { isVerified }),
   adminDeleteCompany: async (id) => del(`/admin/companies/${id}`),
-  adminStudents: async (params = {}) => {
-    const q = new URLSearchParams(params).toString();
-    return get(`/admin/students${q ? '?' + q : ''}`);
-  },
+  adminStudents: async (params = {}) => get('/admin/students', params),
   adminDeleteStudent: async (id) => del(`/admin/students/${id}`),
-  adminNotifications: async (params = {}) => {
-    const q = new URLSearchParams(params).toString();
-    return get(`/admin/notifications${q ? '?' + q : ''}`);
-  },
+  adminNotifications: async (params = {}) => get('/admin/notifications', params),
   adminMarkAllNotificationsRead: async () => post('/admin/notifications/mark-all-read', {}),
   adminSettings: async () => get('/admin/settings'),
   adminUpdateSettings: async (settings) => put('/admin/settings', settings),
