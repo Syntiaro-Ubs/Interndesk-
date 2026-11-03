@@ -43,10 +43,75 @@ function saveAuthToken(token) {
 
 function saveCurrentUser(user) {
   try {
-    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
+    if (user) safeSetStorage(USER_KEY, user);
     else localStorage.removeItem(USER_KEY);
   } catch {}
 }
+
+export function safeSetStorage(key, value) {
+  try {
+    let toStore = value;
+    if (typeof value === 'object' && value !== null) {
+      toStore = { ...value };
+      if (typeof toStore.avatar === 'string' && toStore.avatar.startsWith('data:')) {
+        delete toStore.avatar;
+      }
+      if (typeof toStore.coverImage === 'string' && toStore.coverImage.startsWith('data:')) {
+        delete toStore.coverImage;
+      }
+      if (toStore.profileData && typeof toStore.profileData === 'object') {
+        toStore.profileData = { ...toStore.profileData };
+        if (typeof toStore.profileData.avatar === 'string' && toStore.profileData.avatar.startsWith('data:')) {
+          delete toStore.profileData.avatar;
+        }
+        if (typeof toStore.profileData.cover === 'string' && toStore.profileData.cover.startsWith('data:')) {
+          delete toStore.profileData.cover;
+        }
+      }
+    }
+    localStorage.setItem(key, typeof toStore === 'string' ? toStore : JSON.stringify(toStore));
+  } catch (err) {
+    console.warn(`[Storage] Failed to save key "${key}":`, err?.message);
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('interndesk_studentProfile')) {
+          const item = localStorage.getItem(k);
+          if (item && item.includes('data:image/')) {
+            localStorage.removeItem(k);
+          }
+        }
+      }
+      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+    } catch {}
+  }
+}
+
+// Immediate one-time cleanup of any bloated base64 in localStorage
+try {
+  if (typeof localStorage !== 'undefined') {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('interndesk_studentProfile')) {
+        const item = localStorage.getItem(k);
+        if (item && item.includes('data:image/')) {
+          try {
+            const parsed = JSON.parse(item);
+            if (parsed.avatar && parsed.avatar.startsWith('data:')) delete parsed.avatar;
+            if (parsed.coverImage && parsed.coverImage.startsWith('data:')) delete parsed.coverImage;
+            if (parsed.profileData) {
+              if (parsed.profileData.avatar && parsed.profileData.avatar.startsWith('data:')) delete parsed.profileData.avatar;
+              if (parsed.profileData.cover && parsed.profileData.cover.startsWith('data:')) delete parsed.profileData.cover;
+            }
+            localStorage.setItem(k, JSON.stringify(parsed));
+          } catch {
+            localStorage.removeItem(k);
+          }
+        }
+      }
+    }
+  }
+} catch {}
 
 export function getCurrentUser() {
   try {
@@ -330,26 +395,78 @@ export const api = {
     return { success: true };
   },
 
-  // ── Student profile (localStorage) ────────────────────────
+  // ── Student profile (Real MySQL DB + Per-User Storage) ─────
   studentProfile: async () => {
+    const user = getCurrentUser();
+    const userKey = user?.email ? `interndesk_studentProfile_${user.email.toLowerCase().trim()}` : 'interndesk_studentProfile';
     try {
-      const raw = localStorage.getItem('interndesk_studentProfile');
+      const data = await get('/users/profile');
+      if (data && (data.id || data.email)) {
+        safeSetStorage(userKey, data);
+        return data;
+      }
+    } catch (e) {
+      // Backend fallback
+    }
+    try {
+      const raw = localStorage.getItem(userKey);
       return raw ? JSON.parse(raw) : {};
     } catch { return {}; }
   },
 
-  publicStudentProfile: async (id) => ({
-    id,
-    name: 'Student',
-    skills: ['React', 'JavaScript', 'Python'],
-    education: 'B.Tech Computer Science'
-  }),
+  publicStudentProfile: async (id) => {
+    try {
+      return await get(`/users/public-profile/${id}`);
+    } catch {
+      return {
+        id,
+        name: 'Student',
+        skills: ['React', 'JavaScript', 'Python'],
+        education: 'B.Tech Computer Science'
+      };
+    }
+  },
 
   updateStudentProfile: async (body) => {
-    const current = JSON.parse(localStorage.getItem('interndesk_studentProfile') || '{}');
-    const updated = { ...current, ...body };
-    localStorage.setItem('interndesk_studentProfile', JSON.stringify(updated));
-    return updated;
+    const user = getCurrentUser();
+    const userKey = user?.email ? `interndesk_studentProfile_${user.email.toLowerCase().trim()}` : 'interndesk_studentProfile';
+    try {
+      const data = await put('/users/profile', body);
+      safeSetStorage(userKey, data);
+      return data;
+    } catch (e) {
+      const current = JSON.parse(localStorage.getItem(userKey) || '{}');
+      const updated = { ...current, ...body };
+      safeSetStorage(userKey, updated);
+      return updated;
+    }
+  },
+
+  // ── Real File / Photo Upload (Industry Standard) ───────────
+  uploadPhoto: async (file, type = 'avatar') => {
+    const user = getCurrentUser();
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+
+    const headers = {};
+    const token = getToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (user?.email) headers['X-User-Email'] = user.email;
+
+    const res = await fetch(`${BASE_URL}/users/upload-photo`, {
+      method: 'POST',
+      headers,
+      body: formData
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to upload photo');
+    }
+
+    const data = await res.json();
+    return data;
   },
 
   // ── Settings ───────────────────────────────────────────────

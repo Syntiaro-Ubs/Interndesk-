@@ -3,6 +3,7 @@ import { ArrowLeft, Briefcase, Calendar, MapPin, Users } from "lucide-react";
 import { api } from "../../api";
 import { CategoryBadge, ModeBadge } from "../../components/ui/Badges";
 import { EasyApplyModal } from "../../components/EasyApplyModal";
+import { formatDeadline } from "../../components/ui/utils";
 
 export function DetailsPage({ setView, onRequireSignup, internship: selectedInternship, userInfo }) {
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -58,7 +59,7 @@ export function DetailsPage({ setView, onRequireSignup, internship: selectedInte
               [Briefcase, "Duration", selectedInternship.duration],
               [MapPin, "Work mode", selectedInternship.mode],
               [Users, "Openings", selectedInternship.openings],
-              [Calendar, "Deadline", selectedInternship.deadline ? new Date(selectedInternship.deadline).toLocaleDateString() : ""],
+              [Calendar, "Deadline", formatDeadline(selectedInternship.deadline)],
             ].filter(([, , value]) => value !== undefined && value !== null && value !== "").map(([Icon, label, value]) => (
               <div key={label} className="rounded-lg bg-background p-3 text-center">
                 <Icon className="w-4 h-4 text-primary mx-auto mb-1" />

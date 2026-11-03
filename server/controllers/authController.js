@@ -140,8 +140,12 @@ export const login = async (req, res) => {
       if (!user || user.role !== 'admin') {
         return res.status(403).json({ error: 'Access denied. No Super Admin account found for this email.' });
       }
-      if (user.password && password && user.password !== password) {
-        return res.status(401).json({ error: 'Incorrect Super Admin password.' });
+      if (!password || !password.trim()) {
+        return res.status(400).json({ error: 'Password is required to sign in as Super Admin.' });
+      }
+      const adminSecret = user.password && user.password.trim() ? user.password.trim() : 'interdesk@26';
+      if (password.trim() !== adminSecret) {
+        return res.status(401).json({ error: 'Incorrect Super Admin password. Please check your credentials.' });
       }
     } else if (user) {
       // 3. Strict partition between Student and Employer accounts:
@@ -156,8 +160,10 @@ export const login = async (req, res) => {
         });
       }
       // Check password if set
-      if (user.password && password && user.password !== password) {
-        return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+      if (user.password && user.password.trim() !== '') {
+        if (!password || user.password.trim() !== password.trim()) {
+          return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+        }
       }
     } else if (!user) {
       // Auto-create user on first login (non-admin)
@@ -318,5 +324,150 @@ export const verifyOtpCode = (req, res) => {
   } catch (err) {
     console.error('Verify OTP error:', err);
     return res.status(500).json({ error: err.message || 'Verification failed' });
+  }
+};
+
+// ── GET PROFILE (Per-User from DB) ───────────────────────────
+export const getProfile = async (req, res) => {
+  try {
+    const userEmail = req.headers['x-user-email'] || req.query.email;
+    if (!userEmail) return res.status(401).json({ error: 'Authentication required' });
+    const emailNorm = userEmail.toLowerCase().trim();
+    const user = await User.findOne({ where: { email: emailNorm } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    let profileData = {};
+    try {
+      profileData = typeof user.profileData === 'string' ? JSON.parse(user.profileData || '{}') : (user.profileData || {});
+    } catch { profileData = {}; }
+
+    // Synchronize avatar and cover image with profileData
+    if (user.avatar) profileData.avatar = user.avatar;
+    if (user.coverImage) profileData.cover = user.coverImage;
+    if (user.resumeKey) profileData.resumeKey = user.resumeKey;
+
+    let skillsList = [];
+    try {
+      skillsList = typeof user.skills === 'string' ? JSON.parse(user.skills || '[]') : (user.skills || []);
+    } catch { skillsList = []; }
+
+    return res.json({
+      id: user.id,
+      email: user.email,
+      fullName: user.name || `${user.firstName} ${user.lastName}`.trim(),
+      phone: user.phone || '',
+      college: user.college || '',
+      degree: user.degree || '',
+      graduationYear: user.gradYear || '',
+      cgpa: user.cgpa || '',
+      bio: user.bio || '',
+      skills: skillsList,
+      avatar: user.avatar || profileData.avatar || '',
+      coverImage: user.coverImage || profileData.cover || '',
+      resumeKey: user.resumeKey || profileData.resumeKey || '',
+      profileData
+    });
+  } catch (err) {
+    console.error('getProfile error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// ── UPDATE PROFILE (Per-User in DB) ───────────────────────────
+export const updateProfile = async (req, res) => {
+  try {
+    const userEmail = req.headers['x-user-email'] || req.body.email;
+    if (!userEmail) return res.status(401).json({ error: 'Authentication required' });
+    const emailNorm = userEmail.toLowerCase().trim();
+    let user = await User.findOne({ where: { email: emailNorm } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const {
+      fullName, phone, location, bio, college, degree, graduationYear,
+      cgpa, skills, profileData, resumeKey, avatar, coverImage
+    } = req.body;
+
+    const updates = {};
+    if (fullName) updates.name = fullName;
+    if (phone !== undefined) updates.phone = phone;
+    if (bio !== undefined) updates.bio = bio;
+    if (college !== undefined) updates.college = college;
+    if (degree !== undefined) updates.degree = degree;
+    if (graduationYear !== undefined) updates.gradYear = String(graduationYear);
+    if (cgpa !== undefined) updates.cgpa = String(cgpa);
+    if (resumeKey !== undefined) updates.resumeKey = resumeKey;
+    if (skills !== undefined) updates.skills = Array.isArray(skills) ? skills : [];
+
+    let currentProfileData = {};
+    try {
+      currentProfileData = typeof user.profileData === 'string' ? JSON.parse(user.profileData || '{}') : (user.profileData || {});
+    } catch { currentProfileData = {}; }
+
+    const mergedProfileData = profileData ? { ...currentProfileData, ...profileData } : currentProfileData;
+
+    if (avatar) { updates.avatar = avatar; mergedProfileData.avatar = avatar; }
+    else if (mergedProfileData.avatar) { updates.avatar = mergedProfileData.avatar; }
+
+    if (coverImage) { updates.coverImage = coverImage; mergedProfileData.cover = coverImage; }
+    else if (mergedProfileData.cover) { updates.coverImage = mergedProfileData.cover; }
+
+    if (resumeKey) { updates.resumeKey = resumeKey; mergedProfileData.resumeKey = resumeKey; }
+    else if (mergedProfileData.resumeKey) { updates.resumeKey = mergedProfileData.resumeKey; }
+
+    updates.profileData = mergedProfileData;
+
+    await user.update(updates);
+
+    return res.json({
+      success: true,
+      id: user.id,
+      email: user.email,
+      fullName: user.name,
+      phone: user.phone,
+      college: user.college,
+      degree: user.degree,
+      graduationYear: user.gradYear,
+      cgpa: user.cgpa,
+      bio: user.bio,
+      skills: user.skills,
+      avatar: user.avatar,
+      coverImage: user.coverImage,
+      resumeKey: user.resumeKey,
+      profileData: mergedProfileData
+    });
+  } catch (err) {
+    console.error('updateProfile error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+// ── GET PUBLIC PROFILE ────────────────────────────────────────
+export const getPublicProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ error: 'Profile not found' });
+
+    let profileData = {};
+    try {
+      profileData = typeof user.profileData === 'string' ? JSON.parse(user.profileData || '{}') : (user.profileData || {});
+    } catch { profileData = {}; }
+
+    return res.json({
+      id: user.id,
+      name: user.name || `${user.firstName} ${user.lastName}`.trim(),
+      email: user.email,
+      bio: user.bio || '',
+      college: user.college || '',
+      degree: user.degree || '',
+      skills: user.skills || [],
+      avatar: user.avatar || profileData.avatar || '',
+      coverImage: user.coverImage || profileData.cover || '',
+      education: profileData.education || [],
+      projects: profileData.projects || [],
+      certifications: profileData.certifications || []
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 };

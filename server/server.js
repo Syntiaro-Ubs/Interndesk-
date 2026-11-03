@@ -34,6 +34,10 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve uploaded static files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Request logger for development
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -72,6 +76,7 @@ app.locals.emit = (event, payload) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', authRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/internships', internshipRoutes);
 app.use('/api/applications', applicationRoutes);
@@ -158,6 +163,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  startServer();
+}
 
 export default app;

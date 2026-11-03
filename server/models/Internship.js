@@ -121,6 +121,10 @@ const Internship = sequelize.define('Internship', {
     type: DataTypes.TEXT,
     defaultValue: ''
   },
+  experienceLevel: {
+    type: DataTypes.STRING(100),
+    defaultValue: 'All Experience Levels'
+  },
   eligibility: {
     type: DataTypes.TEXT,
     defaultValue: ''

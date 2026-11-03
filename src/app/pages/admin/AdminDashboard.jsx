@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { api } from "../../api";
 import { toast } from "sonner";
 import { LogOut, Home, FileText, Building2, Users, Bell, Settings, Search, Trash2 } from "lucide-react";
+import { formatDeadline } from "../../components/ui/utils";
 
 export function AdminDashboard({ section, setSection, userInfo, logout, setView }) {
   const [stats, setStats] = useState(null);
@@ -387,7 +388,7 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                 <div><span style={{ fontSize: 11, color: "#717182" }}>Openings</span><div style={{ fontSize: 13 }}>{viewingJob.openings || 1}</div></div>
                 <div><span style={{ fontSize: 11, color: "#717182" }}>Applicants</span><div style={{ fontSize: 13 }}>{viewingJob.applicants || 0}</div></div>
                 <div><span style={{ fontSize: 11, color: "#717182" }}>Posted</span><div style={{ fontSize: 13 }}>{formatDate(viewingJob.createdAt)}</div></div>
-                <div><span style={{ fontSize: 11, color: "#717182" }}>Deadline</span><div style={{ fontSize: 13 }}>{viewingJob.deadline || "—"}</div></div>
+                <div><span style={{ fontSize: 11, color: "#717182" }}>Deadline</span><div style={{ fontSize: 13 }}>{formatDeadline(viewingJob.deadline) || "—"}</div></div>
               </div>
               {viewingJob.description && (
                 <div style={{ marginBottom: 20 }}>
