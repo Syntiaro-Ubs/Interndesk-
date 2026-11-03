@@ -30,11 +30,12 @@ export const getAllCompanies = async (req, res) => {
     const { search, industry } = req.query;
     const where = {};
 
-    if (search) {
+    const cleanSearch = (search && search !== 'undefined' && search !== 'null') ? String(search).trim() : '';
+    if (cleanSearch) {
       where[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { industry: { [Op.like]: `%${search}%` } },
-        { location: { [Op.like]: `%${search}%` } }
+        { name: { [Op.like]: `%${cleanSearch}%` } },
+        { industry: { [Op.like]: `%${cleanSearch}%` } },
+        { location: { [Op.like]: `%${cleanSearch}%` } }
       ];
     }
     if (industry && industry !== 'All') {
