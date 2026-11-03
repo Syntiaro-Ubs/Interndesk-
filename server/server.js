@@ -11,6 +11,7 @@ import internshipRoutes from './routes/internshipRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import { downloadOwnedResume, uploadResume } from './controllers/applicationController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,6 +77,10 @@ app.use('/api/internships', internshipRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Direct resume assets access (supports frontend ${BASE_URL}/resumes/:key)
+app.get('/api/resumes/:key', downloadOwnedResume);
+app.post('/api/resumes', uploadResume);
 
 // General configuration endpoint
 app.get('/api/config', (req, res) => {

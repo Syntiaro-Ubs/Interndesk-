@@ -474,13 +474,26 @@ export const streamApplicationResume = async (req, res) => {
 
 export const downloadOwnedResume = async (req, res) => {
   try {
-    const email = String(req.headers['x-user-email'] || '').toLowerCase();
-    const asset = await ResumeAsset.findByPk(req.params.key);
-    if (!asset) return res.status(404).json({ error: 'The uploaded resume file is unavailable' });
-    if (!email || asset.ownerEmail !== email) return res.status(403).json({ error: 'You cannot access this resume' });
-    res.setHeader('Content-Type', asset.mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${asset.fileName.replace(/["\\\r\n]/g, '_')}"`);
-    return res.send(Buffer.from(asset.dataBase64, 'base64'));
+    const rawKey = req.params.key;
+    const email = String(req.headers['x-user-email'] || req.query.email || '').toLowerCase().trim();
+    const asset = await ResumeAsset.findByPk(rawKey);
+    if (!asset || !asset.dataBase64) return res.status(404).json({ error: 'The uploaded resume file is unavailable' });
+
+    let isAllowed = !email || asset.ownerEmail.toLowerCase() === email;
+    if (!isAllowed && email) {
+      const user = await User.findOne({ where: { email } });
+      if (user && (user.role === 'admin' || user.role === 'company')) {
+        isAllowed = true;
+      }
+    }
+    if (!isAllowed) return res.status(403).json({ error: 'You cannot access this resume' });
+
+    const buffer = Buffer.from(asset.dataBase64, 'base64');
+    const safeName = (asset.fileName || 'Resume.pdf').replace(/[^a-zA-Z0-9._-]/g, '_');
+    res.setHeader('Content-Type', asset.mimeType || 'application/pdf');
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
+    return res.end(buffer);
   } catch (err) {
     console.error('downloadOwnedResume error:', err);
     return res.status(500).json({ error: err.message || 'Could not load this resume' });

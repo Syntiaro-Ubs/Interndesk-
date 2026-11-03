@@ -344,51 +344,8 @@ function Footer({
             </div>
           </div>
 
-          {/* Bottom Bar with direct Privacy Policy & Terms Links */}
-          <div className="pt-6 border-t border-[#e0dfdc] flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-            <div className="flex items-center gap-3 flex-wrap justify-center sm:justify-start text-[11px] text-black/70">
-              <span className="font-semibold text-black/80">© 2026 InternDesk Corporation</span>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => setLegalModal("privacy")}
-                className="hover:text-[#0a66c2] hover:underline cursor-pointer font-semibold text-black/80"
-              >
-                Privacy Policy
-              </button>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => setLegalModal("terms")}
-                className="hover:text-[#0a66c2] hover:underline cursor-pointer font-semibold text-black/80"
-              >
-                Terms &amp; Conditions
-              </button>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => setLegalModal("terms")}
-                className="hover:text-[#0a66c2] hover:underline cursor-pointer"
-              >
-                User Agreement
-              </button>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => setLegalModal("privacy")}
-                className="hover:text-[#0a66c2] hover:underline cursor-pointer"
-              >
-                Cookie Policy
-              </button>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => setView("help")}
-                className="hover:text-[#0a66c2] hover:underline cursor-pointer"
-              >
-                Help Center
-              </button>
-            </div>
+          {/* Bottom Bar */}
+          <div className="pt-6 border-t border-[#e0dfdc] text-center">
             <p className="text-black/60 text-xs font-semibold tracking-wide">
               Design &amp; Developed by{" "}
               <a

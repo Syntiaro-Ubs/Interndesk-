@@ -14,7 +14,7 @@ export const register = async (req, res) => {
   try {
     const {
       email, password, role = 'student',
-      firstName = '', lastName = '',
+      firstName = '', lastName = '',   
       companyName = '', companyDomain = '', designation = ''
     } = req.body;
 
@@ -126,12 +126,39 @@ export const login = async (req, res) => {
 
     let user = await User.findOne({ where: { email: emailNorm } });
 
-    // --- Admin login: never auto-create, never override role ---
+    // 1. Strict partition for Admin accounts:
+    // If user is admin in DB, they can ONLY log in via the 'admin' tab.
+    if (user && user.role === 'admin' && role !== 'admin') {
+      return res.status(403).json({
+        error: 'Super Admin credentials can only be used on the Super Admin tab. Please switch to the Super Admin tab to sign in.'
+      });
+    }
+
+    // 2. Strict partition for Admin portal:
+    // If request is for 'admin' role, user MUST exist and have role === 'admin'.
     if (role === 'admin') {
       if (!user || user.role !== 'admin') {
-        return res.status(403).json({ error: 'Access denied. No admin account found for this email.' });
+        return res.status(403).json({ error: 'Access denied. No Super Admin account found for this email.' });
       }
-      // (optional) check password if stored
+      if (user.password && password && user.password !== password) {
+        return res.status(401).json({ error: 'Incorrect Super Admin password.' });
+      }
+    } else if (user) {
+      // 3. Strict partition between Student and Employer accounts:
+      if (user.role === 'company' && role === 'student') {
+        return res.status(403).json({
+          error: 'This email is registered as an Employer account. Please switch to the Employer tab to sign in.'
+        });
+      }
+      if (user.role === 'student' && role === 'company') {
+        return res.status(403).json({
+          error: 'This email is registered as a Student account. Please switch to the Student tab to sign in.'
+        });
+      }
+      // Check password if set
+      if (user.password && password && user.password !== password) {
+        return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+      }
     } else if (!user) {
       // Auto-create user on first login (non-admin)
       const isCompanyRole = role === 'company';
@@ -152,9 +179,6 @@ export const login = async (req, res) => {
         companyName: comp ? comp.name : '',
         profileComplete: true
       });
-    } else if (role && role !== user.role && user.role !== 'admin') {
-      // Only update role if user is NOT admin (protect admin accounts)
-      await user.update({ role });
     }
 
     const userData = {
@@ -257,6 +281,16 @@ export const sendOtp = async (req, res) => {
       });
     } catch (mailErr) {
       console.error(`[AUTH] SMTP delivery error to ${emailNorm}:`, mailErr.message);
+      // In development mode or if mail fails, log the OTP and allow development testing
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[AUTH DEV FALLBACK] Generated OTP for ${emailNorm} is: ${otp}`);
+        return res.json({
+          success: true,
+          devFallback: true,
+          otp,
+          message: `Verification code sent to ${emailNorm}. (Dev code: ${otp})`
+        });
+      }
       return res.status(500).json({
         error: `Could not send verification email: ${mailErr.message}. Please check your email credentials in server/.env.`
       });
@@ -273,7 +307,10 @@ export const verifyOtpCode = (req, res) => {
     const { email, otp } = req.body;
     if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
 
-    const result = checkOtp(email, otp);
+    const cleanEmail = String(email).toLowerCase().trim();
+    const cleanOtp = String(otp).trim();
+
+    const result = checkOtp(cleanEmail, cleanOtp);
     if (!result.valid) {
       return res.status(400).json({ error: result.reason });
     }
