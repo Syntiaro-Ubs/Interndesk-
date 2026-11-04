@@ -130,7 +130,7 @@ export const login = async (req, res) => {
     // If user is admin in DB, they can ONLY log in via the 'admin' tab.
     if (user && user.role === 'admin' && role !== 'admin') {
       return res.status(403).json({
-        error: 'Super Admin credentials can only be used on the Super Admin tab. Please switch to the Super Admin tab to sign in.'
+        error: 'Super Admin credentials can only be used on the dedicated Super Admin login page (/admin/login).'
       });
     }
 

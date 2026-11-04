@@ -53,7 +53,14 @@ function pathToState(pathname, search, currentRole) {
   if (cleanPath === "/login/employer" || cleanPath === "/login/company") {
     return { view: "auth", authParams: { mode: "login", role: "company" } };
   }
-  if (cleanPath === "/login/admin" || cleanPath === "/admin/login") {
+  if (
+    cleanPath === "/admin/login" ||
+    cleanPath === "/login/admin" ||
+    cleanPath === "/admin-login" ||
+    cleanPath === "/superadmin" ||
+    cleanPath === "/superadmin/login" ||
+    cleanPath === "/super-admin"
+  ) {
     return { view: "auth", authParams: { mode: "login", role: "admin" } };
   }
   if (cleanPath === "/login" || cleanPath === "/signin") {
@@ -67,18 +74,25 @@ function pathToState(pathname, search, currentRole) {
   }
   if (cleanPath === "/auth") {
     const mode = params.get("mode") === "signup" || params.get("mode") === "register" ? "register" : "login";
-    const role = params.get("role") === "company" || params.get("role") === "employer" ? "company" : "student";
+    const roleParam = params.get("role");
+    const role = roleParam === "admin" ? "admin" : roleParam === "company" || roleParam === "employer" ? "company" : "student";
     return { view: "auth", authParams: { mode, role } };
   }
 
   // Admin routes
   if (cleanPath.startsWith("/admin")) {
     const rawSub = cleanPath.replace(/^\/admin/, "").replace(/^\//, "");
+    if (rawSub === "login") {
+      return { view: "auth", authParams: { mode: "login", role: "admin" } };
+    }
     let adminSec = "overview";
     if (["overview", "jobs", "internships", "companies", "students", "notifications", "settings"].includes(rawSub)) {
       adminSec = rawSub;
     }
-    return { view: "admin", adminSection: adminSec };
+    if (currentRole === "admin") {
+      return { view: "admin", adminSection: adminSec };
+    }
+    return { view: "auth", authParams: { mode: "login", role: "admin" } };
   }
 
   // Company / Employer portal routes
@@ -186,7 +200,7 @@ function stateToPath({ view, portalSection, adminSection, authParams, selectedIn
       const mode = authParams?.mode === "signup" || authParams?.mode === "register" ? "signup" : "login";
       const isEmployer = authParams?.role === "company" || authParams?.role === "employer";
       const isAdmin = authParams?.role === "admin";
-      if (isAdmin) return "/login/admin";
+      if (isAdmin) return "/admin/login";
       if (mode === "signup") return isEmployer ? "/signup/employer" : "/signup";
       return isEmployer ? "/login/employer" : "/login";
     }
@@ -403,7 +417,13 @@ function App() {
   useEffect(() => {
     if (!sessionReady) return;
 
-    if (view === "company-portal" && userRole !== "company") {
+    if (view === "admin" && userRole !== "admin") {
+      setAuthParamsState({ mode: "login", role: "admin" });
+      setViewRaw("auth");
+      if (window.location.pathname !== "/admin/login") {
+        window.history.replaceState({ view: "auth" }, "", "/admin/login");
+      }
+    } else if (view === "company-portal" && userRole !== "company") {
       setAuthParamsState({ mode: "login", role: "company" });
       setViewRaw("auth");
       if (window.location.pathname !== "/login/employer") {

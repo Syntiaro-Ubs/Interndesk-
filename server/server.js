@@ -149,7 +149,7 @@ async function startServer() {
   try {
     await sequelize.authenticate();
     console.log('✅ Connected to MySQL Database via Sequelize.');
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log('✅ Sequelize Models Synced.');
   } catch (dbErr) {
     console.error('❌ Database Connection Error:', dbErr.message);

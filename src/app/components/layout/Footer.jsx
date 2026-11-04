@@ -235,11 +235,7 @@ function Footer({
                     Help Center
                   </button>
                 </li>
-                <li>
-                  <button type="button" onClick={handleAdminLogin} className="hover:text-[#0a66c2] hover:underline cursor-pointer font-medium text-black/70">
-                    Admin Portal
-                  </button>
-                </li>
+
               </ul>
             </div>
             <div>
