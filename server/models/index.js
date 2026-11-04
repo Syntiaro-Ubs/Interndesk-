@@ -10,6 +10,7 @@ import Application from './Application.js';
 import Notification from './Notification.js';
 import ApplicationMessage from './ApplicationMessage.js';
 import ResumeAsset from './ResumeAsset.js';
+import EmailOtp from './EmailOtp.js';
 
 // ── Associations ─────────────────────────────────────────────
 // Company has many Users (recruiters)
@@ -26,4 +27,4 @@ Application.belongsTo(Internship, { foreignKey: 'jobId', as: 'internship' });
 Application.hasMany(ApplicationMessage, { foreignKey: 'applicationId', as: 'messages' });
 ApplicationMessage.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 
-export { sequelize, User, Company, Internship, Application, ApplicationMessage, ResumeAsset, Notification };
+export { sequelize, User, Company, Internship, Application, ApplicationMessage, ResumeAsset, Notification, EmailOtp };

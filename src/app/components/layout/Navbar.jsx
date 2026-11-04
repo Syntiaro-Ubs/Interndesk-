@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Bell, Briefcase, Building2, ChevronDown, FileText, Home, ScrollText } from "lucide-react";
 import { api } from "../../api";
 import logoUrl from "../../../assets/interndesknewlogos.png";
@@ -102,23 +102,75 @@ function Navbar({ view, setView, userRole, setAuthParams, userInfo, logout }) {
 }
 
 function UserMenu({ displayName, initial, userInfo, navigate, logout, open, setOpen, student = false }) {
+  const menuRef = useRef(null);
+
+  // Close menu when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!open) return;
+
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, setOpen]);
+
   return (
-    <div className="relative flex h-full items-center">
-      <button type="button" onClick={() => setOpen((current) => !current)} className="flex h-full flex-col items-center justify-center px-3 text-muted-foreground transition-colors hover:text-foreground" aria-expanded={open} aria-label="Open account menu">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0a66c2] text-[9px] font-bold text-white">{initial}</span>
-        <span className="mt-0.5 hidden items-center text-[11px] font-normal lg:flex">Me <ChevronDown className="ml-0.5 h-3 w-3" /></span>
+    <div ref={menuRef} className="relative flex h-full items-center">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="flex h-full flex-col items-center justify-center px-3 text-muted-foreground transition-colors hover:text-foreground cursor-pointer select-none"
+        aria-expanded={open}
+        aria-label="Open account menu"
+      >
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0a66c2] text-[9px] font-bold text-white shadow-xs">{initial}</span>
+        <span className="mt-0.5 hidden items-center text-[11px] font-normal lg:flex">
+          Me <ChevronDown className={`ml-0.5 h-3 w-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        </span>
       </button>
       {open && (
-        <div className="absolute right-0 top-14 z-50 w-64 overflow-hidden rounded-lg border border-border bg-card shadow-lg">
+        <div className="absolute right-0 top-14 z-50 w-64 overflow-hidden rounded-xl border border-border bg-card shadow-xl animate-in fade-in zoom-in-95 duration-150">
           <div className="border-b border-border p-4">
             <p className="text-sm font-semibold text-foreground">{displayName}</p>
-            {userInfo?.email && <p className="mt-1 text-xs text-muted-foreground">{userInfo.email}</p>}
+            {userInfo?.email && <p className="mt-0.5 text-xs text-muted-foreground truncate">{userInfo.email}</p>}
           </div>
-          <div className="p-2">
-            <button type="button" onClick={() => navigate(student ? "profile" : "company-portal")} className="w-full rounded-full border border-[#0a66c2] px-4 py-1 text-center text-sm font-semibold text-[#0a66c2] hover:bg-[#f4faff]">{student ? "View Profile" : "Open Portal"}</button>
+          <div className="p-2.5">
+            <button
+              type="button"
+              onClick={() => navigate(student ? "profile" : "company-portal")}
+              className="w-full rounded-full border border-[#0a66c2] px-4 py-1.5 text-center text-sm font-semibold text-[#0a66c2] hover:bg-[#f4faff] cursor-pointer transition-colors"
+            >
+              {student ? "View Profile" : "Open Portal"}
+            </button>
           </div>
           <div className="border-t border-border p-2">
-            <button type="button" onClick={logout} className="w-full px-2 py-1 text-left text-sm text-muted-foreground hover:underline">Sign Out</button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                logout?.();
+              }}
+              className="w-full px-3 py-1.5 text-left text-sm text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors cursor-pointer"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       )}

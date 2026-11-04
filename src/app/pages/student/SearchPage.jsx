@@ -153,7 +153,7 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
           durations: options.durations || ["2 Months", "3 Months", "6 Months"]
         });
       }
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { active = false; };
   }, []);
 
@@ -192,7 +192,7 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
   useEffect(() => {
     if (userRole !== "student") return;
     let active = true;
-    api.savedInternships().then((items) => { if (active) setSavedIds((items || []).map((item) => Number(item.id))); }).catch(() => {});
+    api.savedInternships().then((items) => { if (active) setSavedIds((items || []).map((item) => Number(item.id))); }).catch(() => { });
     return () => { active = false; };
   }, [userRole]);
 
@@ -232,7 +232,10 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
     ...selPosted !== "Any time" ? [{ label: selPosted, onRemove: () => setSelPosted("Any time") }] : []
   ];
 
+  const today = new Date().toISOString().split("T")[0];
   const filtered = allJobs.filter((i) => {
+    if (i.status === "Closed" || i.status === "Expired") return false;
+    if (i.deadline && String(i.deadline).split("T")[0] < today) return false;
     if (selCat.length) {
       const matchCat = selCat.some((c) => {
         if (c === i.category) return true;
@@ -373,14 +376,14 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
         "Easy Apply"
       ))
     );
-  })), filtered.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-1.5 mt-5 pb-2" }, /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors" }, "â† Previous"), [1, 2, 3].map((p) => /* @__PURE__ */ React.createElement(
+  })), filtered.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-1.5 mt-5 pb-2" }, /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors" }, "Previous"), [1, 2, 3].map((p) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: p,
       className: `w-9 h-9 rounded-lg text-sm font-medium transition-colors ${p === 1 ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:border-primary hover:text-primary"}`
     },
     p
-  )), /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:border-primary hover:text-primary transition-colors" }, "Next â†’"))))));
+  )), /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:border-primary hover:text-primary transition-colors" }, "Next"))))));
 }
 
 export {

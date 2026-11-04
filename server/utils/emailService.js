@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
+import EmailOtp from '../models/EmailOtp.js';
 
-// ── In-memory OTP store ──────────────────────────────────────
+// ── In-memory OTP store (fallback) ───────────────────────────
 // Maps email → { otp, expiresAt }
 const otpStore = new Map();
 
@@ -60,17 +61,67 @@ export function generateOtp() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-export function storeOtp(email, otp) {
-  otpStore.set(email.toLowerCase().trim(), {
-    otp,
-    expiresAt: Date.now() + OTP_EXPIRY_MS,
+export async function storeOtp(email, otp) {
+  const emailKey = email.toLowerCase().trim();
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MS);
+
+  // In-memory fallback
+  otpStore.set(emailKey, {
+    otp: String(otp).trim(),
+    expiresAt: expiresAt.getTime(),
   });
+
+  // Persist to MySQL database table `email_otps`
+  try {
+    // Invalidate previous unconsumed OTPs for this email
+    await EmailOtp.update(
+      { consumed: true },
+      { where: { email: emailKey, consumed: false } }
+    );
+
+    await EmailOtp.create({
+      email: emailKey,
+      otp: String(otp).trim(),
+      expiresAt,
+      consumed: false
+    });
+  } catch (err) {
+    console.warn('[AUTH] Warning: Could not write OTP to DB, using in-memory store:', err.message);
+  }
 }
 
-export function verifyOtp(email, otp) {
+export async function verifyOtp(email, otp, markConsumed = true) {
   const emailKey = email.toLowerCase().trim();
   const inputOtp = String(otp || '').trim();
 
+  // 1. Try DB first (persists across server restarts / hot reloads)
+  try {
+    const dbRecord = await EmailOtp.findOne({
+      where: {
+        email: emailKey,
+        consumed: false
+      },
+      order: [['id', 'DESC']]
+    });
+
+    if (dbRecord) {
+      if (new Date() > new Date(dbRecord.expiresAt)) {
+        return { valid: false, reason: 'Verification code has expired. Please request a new code.' };
+      }
+      if (dbRecord.otp !== inputOtp) {
+        return { valid: false, reason: 'Invalid verification code. Please check your email and try again.' };
+      }
+      if (markConsumed) {
+        await dbRecord.update({ consumed: true });
+        otpStore.delete(emailKey);
+      }
+      return { valid: true };
+    }
+  } catch (dbErr) {
+    console.warn('[AUTH] DB OTP check fallback:', dbErr.message);
+  }
+
+  // 2. In-memory store fallback
   const record = otpStore.get(emailKey);
   if (!record) {
     return { valid: false, reason: 'No OTP found for this email. Please request a new code.' };
@@ -82,8 +133,21 @@ export function verifyOtp(email, otp) {
   if (record.otp !== inputOtp) {
     return { valid: false, reason: 'Invalid verification code. Please check your email and try again.' };
   }
-  otpStore.delete(emailKey); // one-time use
+  if (markConsumed) {
+    otpStore.delete(emailKey);
+  }
   return { valid: true };
+}
+
+export async function consumeOtp(email) {
+  const emailKey = email.toLowerCase().trim();
+  otpStore.delete(emailKey);
+  try {
+    await EmailOtp.update(
+      { consumed: true },
+      { where: { email: emailKey, consumed: false } }
+    );
+  } catch {}
 }
 
 // ── Send OTP email ────────────────────────────────────────────

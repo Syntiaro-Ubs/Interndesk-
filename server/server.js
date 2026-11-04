@@ -33,9 +33,25 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Request logger for development
+// Request and response logger for development
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  const start = Date.now();
+  const safeBody = { ...req.body };
+  if (safeBody.password) safeBody.password = '***';
+  const bodyPreview = Object.keys(safeBody).length ? JSON.stringify(safeBody) : '';
+
+  const origJson = res.json;
+  res.json = function (data) {
+    const duration = Date.now() - start;
+    if (res.statusCode >= 400) {
+      console.log(`[${new Date().toISOString()}] ❌ ${res.statusCode} ${req.method} ${req.url} (${duration}ms) - Error:`, data?.error || data);
+    } else {
+      console.log(`[${new Date().toISOString()}] ✅ ${res.statusCode} ${req.method} ${req.url} (${duration}ms)`);
+    }
+    return origJson.call(this, data);
+  };
+
+  console.log(`[${new Date().toISOString()}] ➡️ ${req.method} ${req.url} ${bodyPreview}`);
   next();
 });
 
