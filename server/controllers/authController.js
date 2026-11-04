@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 import { User, Company } from '../models/index.js';
-import { generateOtp, storeOtp, verifyOtp as checkOtp, sendOtpEmail, isEmailConfigured } from '../utils/emailService.js';
+import { generateOtp, storeOtp, verifyOtp as checkOtp, consumeOtp, sendOtpEmail, isEmailConfigured } from '../utils/emailService.js';
 
 function getCompanyLogoColor(name = '') {
   const colors = ['#0A66C2', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#8B5CF6', '#14B8A6', '#F97316'];
@@ -14,12 +14,33 @@ export const register = async (req, res) => {
   try {
     const {
       email, password, role = 'student',
-      firstName = '', lastName = '',   
-      companyName = '', companyDomain = '', designation = ''
+      firstName = '', lastName = '',
+      companyName = '', companyDomain = '', designation = '',
+      otp
     } = req.body;
 
-    if (!email) return res.status(400).json({ error: 'Email is required' });
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email address is required.' });
+    }
+    if (!password || password.trim().length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
     const emailNorm = email.toLowerCase().trim();
+
+    // Check if account already exists
+    const existing = await User.findOne({ where: { email: emailNorm } });
+    if (existing) {
+      return res.status(409).json({ error: 'An account with this email already exists. Please sign in instead.' });
+    }
+
+    // Verify OTP if provided (without consuming yet)
+    if (otp) {
+      const otpCheck = await checkOtp(emailNorm, otp, false);
+      if (!otpCheck.valid) {
+        return res.status(400).json({ error: otpCheck.reason });
+      }
+    }
 
     let companyId = null;
     let registeredCompanyName = companyName.trim();
@@ -55,7 +76,7 @@ export const register = async (req, res) => {
         }
       });
 
-      // Update recruiter info even if company existed
+      // Update recruiter info on company
       await companyObj.update({
         recruiterName: `${firstName} ${lastName}`.trim() || companyObj.recruiterName,
         recruiterEmail: emailNorm,
@@ -65,43 +86,37 @@ export const register = async (req, res) => {
       companyId = companyObj.id;
     }
 
-    const [user, created] = await User.findOrCreate({
-      where: { email: emailNorm },
-      defaults: {
-        email: emailNorm,
-        password,
-        name: `${firstName} ${lastName}`.trim() || emailNorm.split('@')[0],
-        firstName: firstName || emailNorm.split('@')[0],
-        lastName: lastName || '',
-        role,
-        companyId,
-        companyName: registeredCompanyName,
-        companyDomain,
-        designation,
-        profileComplete: true
-      }
+    // Create verified user record
+    const user = await User.create({
+      email: emailNorm,
+      password: password.trim(),
+      name: `${firstName} ${lastName}`.trim() || emailNorm.split('@')[0],
+      firstName: firstName || emailNorm.split('@')[0],
+      lastName: lastName || '',
+      role,
+      companyId,
+      companyName: registeredCompanyName,
+      companyDomain,
+      designation,
+      profileComplete: true
     });
 
-    if (!created) {
-      await user.update({
-        role,
-        password: password || user.password,
-        name: `${firstName} ${lastName}`.trim() || user.name,
-        firstName: firstName || user.firstName,
-        lastName: lastName || user.lastName,
-        companyId: companyId || user.companyId,
-        companyName: registeredCompanyName || user.companyName,
-        companyDomain: companyDomain || user.companyDomain,
-        designation: designation || user.designation,
-        profileComplete: true
-      });
+    // Registration succeeded! Consume the OTP now
+    if (otp) {
+      await consumeOtp(emailNorm);
     }
 
     const userData = {
-      id: user.id, email: user.email, name: user.name,
-      firstName: user.firstName, lastName: user.lastName, role: user.role,
-      companyId: user.companyId, companyName: user.companyName,
-      companyDomain: user.companyDomain, designation: user.designation,
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      companyId: user.companyId,
+      companyName: user.companyName,
+      companyDomain: user.companyDomain,
+      designation: user.designation,
       profileComplete: user.profileComplete
     };
 
@@ -109,11 +124,11 @@ export const register = async (req, res) => {
       user: userData,
       token: `token_${user.id}`,
       csrfToken: 'csrf_token',
-      message: 'Registration successful'
+      message: 'Account registered successfully.'
     });
   } catch (err) {
     console.error('Register error:', err);
-    return res.status(500).json({ error: err.message || 'Registration failed' });
+    return res.status(500).json({ error: err.message || 'Registration failed.' });
   }
 };
 
@@ -121,88 +136,87 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password, role } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email is required' });
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email address is required.' });
+    }
+    if (!password || !password.trim()) {
+      return res.status(400).json({ error: 'Password is required.' });
+    }
+
     const emailNorm = email.toLowerCase().trim();
 
-    let user = await User.findOne({ where: { email: emailNorm } });
+    // 1. Strict user lookup: NEVER auto-create users on login
+    const user = await User.findOne({ where: { email: emailNorm } });
+    if (!user) {
+      return res.status(404).json({
+        error: 'No account found with this email. Please check your email or sign up first.'
+      });
+    }
 
-    // 1. Strict partition for Admin accounts:
-    // If user is admin in DB, they can ONLY log in via the 'admin' tab.
-    if (user && user.role === 'admin' && role !== 'admin') {
+    // 2. Strict Role Partitioning:
+    // If account is Super Admin:
+    if (user.role === 'admin' && role !== 'admin') {
       return res.status(403).json({
         error: 'Super Admin credentials can only be used on the dedicated Super Admin login page (/admin/login).'
       });
     }
 
-    // 2. Strict partition for Admin portal:
-    // If request is for 'admin' role, user MUST exist and have role === 'admin'.
-    if (role === 'admin') {
-      if (!user || user.role !== 'admin') {
-        return res.status(403).json({ error: 'Access denied. No Super Admin account found for this email.' });
-      }
-      if (!password || !password.trim()) {
-        return res.status(400).json({ error: 'Password is required to sign in as Super Admin.' });
-      }
-      const adminSecret = user.password && user.password.trim() ? user.password.trim() : 'interdesk@26';
-      if (password.trim() !== adminSecret) {
-        return res.status(401).json({ error: 'Incorrect Super Admin password. Please check your credentials.' });
-      }
-    } else if (user) {
-      // 3. Strict partition between Student and Employer accounts:
-      if (user.role === 'company' && role === 'student') {
-        return res.status(403).json({
-          error: 'This email is registered as an Employer account. Please switch to the Employer tab to sign in.'
-        });
-      }
-      if (user.role === 'student' && role === 'company') {
-        return res.status(403).json({
-          error: 'This email is registered as a Student account. Please switch to the Student tab to sign in.'
-        });
-      }
-      // Check password if set
-      if (user.password && user.password.trim() !== '') {
-        if (!password || user.password.trim() !== password.trim()) {
-          return res.status(401).json({ error: 'Incorrect password. Please try again.' });
-        }
-      }
-    } else if (!user) {
-      // Auto-create user on first login (non-admin)
-      const isCompanyRole = role === 'company';
-      let comp = null;
-      if (isCompanyRole) {
-        comp = await Company.findOne({ where: { recruiterEmail: emailNorm } });
-      }
+    // If trying to access Super Admin without an admin account:
+    if (role === 'admin' && user.role !== 'admin') {
+      return res.status(403).json({
+        error: 'Access denied. This account does not have Super Admin privileges.'
+      });
+    }
 
-      const userName = emailNorm.split('@')[0];
-      user = await User.create({
-        email: emailNorm,
-        password: password || '',
-        name: userName,
-        firstName: userName,
-        lastName: isCompanyRole ? 'Recruiter' : 'Student',
-        role: role || (comp ? 'company' : 'student'),
-        companyId: comp ? comp.id : null,
-        companyName: comp ? comp.name : '',
-        profileComplete: true
+    // If student tries to log in under employer tab:
+    if (role === 'company' && user.role !== 'company') {
+      return res.status(403).json({
+        error: 'This email is registered as a Student account. Please switch to the Student login tab.'
+      });
+    }
+
+    // If employer tries to log in under student tab:
+    if (role === 'student' && user.role !== 'student') {
+      return res.status(403).json({
+        error: 'This email is registered as an Employer account. Please switch to the Employer login tab.'
+      });
+    }
+
+    // 3. Strict Password Verification:
+    // Fallback password for seeded admin if empty: 'interdesk@26'
+    const expectedPassword = (user.role === 'admin' && (!user.password || !user.password.trim()))
+      ? 'interdesk@26'
+      : (user.password || '').trim();
+
+    if (!expectedPassword || expectedPassword !== password.trim()) {
+      return res.status(401).json({
+        error: 'Incorrect password. Please verify your credentials and try again.'
       });
     }
 
     const userData = {
-      id: user.id, email: user.email, name: user.name,
-      firstName: user.firstName, lastName: user.lastName, role: user.role,
-      companyId: user.companyId, companyName: user.companyName,
-      companyDomain: user.companyDomain, designation: user.designation,
-      profileComplete: user.profileComplete
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      companyId: user.companyId,
+      companyName: user.companyName,
+      companyDomain: user.companyDomain,
+      designation: user.designation,
+      profileComplete: Boolean(user.profileComplete)
     };
 
     return res.json({
       user: userData,
       token: `token_${user.id}`,
-      csrfToken: 'csrf_token'
+      csrfToken: 'csrf_token',
+      message: 'Logged in successfully.'
     });
   } catch (err) {
     console.error('Login error:', err);
-    return res.status(500).json({ error: err.message || 'Login failed' });
+    return res.status(500).json({ error: err.message || 'Login failed.' });
   }
 };
 
@@ -210,30 +224,13 @@ export const login = async (req, res) => {
 export const me = async (req, res) => {
   try {
     const emailQuery = req.headers['x-user-email'] || req.query.email;
-    if (!emailQuery) return res.status(401).json({ error: 'Not authenticated' });
+    if (!emailQuery) return res.status(401).json({ error: 'Not authenticated.' });
 
     const emailNorm = emailQuery.toLowerCase().trim();
-    let user = await User.findOne({ where: { email: emailNorm } });
+    const user = await User.findOne({ where: { email: emailNorm } });
 
     if (!user) {
-      // Check if this email belongs to a company recruiter
-      const comp = await Company.findOne({ where: { recruiterEmail: emailNorm } });
-      const namePart = emailNorm.split('@')[0];
-      const displayName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-
-      user = await User.create({
-        email: emailNorm,
-        password: '',
-        name: comp ? comp.recruiterName || displayName : displayName,
-        firstName: comp ? (comp.recruiterName || '').split(' ')[0] || displayName : displayName,
-        lastName: comp ? (comp.recruiterName || '').split(' ').slice(1).join(' ') || 'Recruiter' : 'Student',
-        role: comp ? 'company' : 'student',
-        companyId: comp ? comp.id : null,
-        companyName: comp ? comp.name : '',
-        companyDomain: comp ? comp.domain : '',
-        designation: comp ? comp.recruiterDesignation || 'Hiring Manager' : '',
-        profileComplete: true
-      });
+      return res.status(404).json({ error: 'User not found.' });
     }
 
     return res.json({
@@ -260,14 +257,24 @@ export const me = async (req, res) => {
 
 export const verifyEmail = register;
 
-export const logout = (req, res) => res.json({ success: true, message: 'Logged out successfully' });
+export const logout = (req, res) => res.json({ success: true, message: 'Logged out successfully.' });
 
 // ── SEND OTP ─────────────────────────────────────────────────
 export const sendOtp = async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email is required' });
+    const { email, mode } = req.body;
+    if (!email || !email.trim()) return res.status(400).json({ error: 'Email is required.' });
     const emailNorm = email.toLowerCase().trim();
+
+    // If registering, check if account already exists
+    if (mode === 'register') {
+      const existing = await User.findOne({ where: { email: emailNorm } });
+      if (existing) {
+        return res.status(409).json({
+          error: 'An account with this email already exists. Please log in instead.'
+        });
+      }
+    }
 
     if (!isEmailConfigured()) {
       return res.status(503).json({
@@ -276,11 +283,11 @@ export const sendOtp = async (req, res) => {
     }
 
     const otp = generateOtp();
-    storeOtp(emailNorm, otp);
+    await storeOtp(emailNorm, otp);
 
     try {
       await sendOtpEmail(emailNorm, otp);
-      console.log(`[AUTH] Verification OTP email successfully sent to: ${emailNorm}`);
+      console.log(`[AUTH] Verification OTP email successfully sent to: ${emailNorm} (OTP Code: ${otp})`);
       return res.json({
         success: true,
         message: `Verification code sent to ${emailNorm}. Please check your email inbox.`
@@ -298,32 +305,30 @@ export const sendOtp = async (req, res) => {
         });
       }
       return res.status(500).json({
-        error: `Could not send verification email: ${mailErr.message}. Please check your email credentials in server/.env.`
+        error: `Could not send verification email: ${mailErr.message}. Please check your email credentials.`
       });
     }
   } catch (err) {
     console.error('Send OTP error:', err);
-    return res.status(500).json({ error: err.message || 'Failed to send verification code' });
+    return res.status(500).json({ error: err.message || 'Failed to send verification code.' });
   }
 };
 
 // ── VERIFY OTP ────────────────────────────────────────────────
-export const verifyOtpCode = (req, res) => {
+export const verifyOtpCode = async (req, res) => {
   try {
     const { email, otp } = req.body;
-    if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+    if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required.' });
 
-    const cleanEmail = String(email).toLowerCase().trim();
-    const cleanOtp = String(otp).trim();
-
-    const result = checkOtp(cleanEmail, cleanOtp);
+    // Validate without destroying OTP so subsequent /register can consume it
+    const result = await checkOtp(email, otp, false);
     if (!result.valid) {
       return res.status(400).json({ error: result.reason });
     }
-    return res.json({ success: true, message: 'Email verified successfully' });
+    return res.json({ success: true, message: 'Email verified successfully.' });
   } catch (err) {
     console.error('Verify OTP error:', err);
-    return res.status(500).json({ error: err.message || 'Verification failed' });
+    return res.status(500).json({ error: err.message || 'Verification failed.' });
   }
 };
 

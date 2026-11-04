@@ -192,7 +192,7 @@ function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
           durations: options.durations || ["2 Months", "3 Months", "6 Months"]
         });
       }
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { active = false; };
   }, []);
 
@@ -232,7 +232,7 @@ function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
   useEffect(() => {
     if (userRole !== "student") return;
     let active = true;
-    api.savedInternships().then((items) => { if (active) setSavedIds((items || []).map((item) => Number(item.id))); }).catch(() => {});
+    api.savedInternships().then((items) => { if (active) setSavedIds((items || []).map((item) => Number(item.id))); }).catch(() => { });
     return () => { active = false; };
   }, [userRole]);
 
@@ -275,31 +275,10 @@ function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
     ...selPosted !== "Any time" ? [{ label: selPosted, onRemove: () => setSelPosted("Any time") }] : []
   ];
 
+  const today = new Date().toISOString().split("T")[0];
   const filtered = allJobs.filter((i) => {
-    if (selExperience.length) {
-      const matchExp = selExperience.some((exp) => {
-        if (!exp || exp === "All Experience Levels") return true;
-        const target = `${i.experienceLevel || ""} ${i.eligibility || ""} ${i.title || ""} ${i.description || ""} ${i.responsibilities || ""}`.toLowerCase();
-        const expLow = exp.toLowerCase();
-        if (expLow.includes("fresher") || expLow.includes("entry level")) {
-          return target.includes("fresher") || target.includes("entry level") || target.includes("beginner") || target.includes("0-1") || target.includes("all experience") || (i.experienceLevel === "All Experience Levels");
-        }
-        if (expLow.includes("1st") || expLow.includes("2nd")) {
-          return target.includes("1st") || target.includes("2nd") || target.includes("first year") || target.includes("second year") || (i.experienceLevel === "All Experience Levels");
-        }
-        if (expLow.includes("pre-final")) {
-          return target.includes("pre-final") || target.includes("3rd") || target.includes("third year") || (i.experienceLevel === "All Experience Levels");
-        }
-        if (expLow.includes("final")) {
-          return target.includes("final") || target.includes("4th") || target.includes("fourth year") || target.includes("graduating") || (i.experienceLevel === "All Experience Levels");
-        }
-        if (expLow.includes("graduate")) {
-          return target.includes("graduate") || target.includes("passout") || target.includes("recent") || (i.experienceLevel === "All Experience Levels");
-        }
-        return target.includes(expLow) || (i.experienceLevel === "All Experience Levels");
-      });
-      if (!matchExp) return false;
-    }
+    if (i.status === "Closed" || i.status === "Expired") return false;
+    if (i.deadline && String(i.deadline).split("T")[0] < today) return false;
     if (selCat.length) {
       const matchCat = selCat.some((c) => {
         if (c === i.category) return true;
@@ -446,40 +425,14 @@ function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
         "Easy Apply"
       ))
     );
-  })), filtered.length > 0 && /* @__PURE__ */ React.createElement(
-    "div",
-    { className: "flex items-center justify-center gap-1.5 mt-5 pb-2" },
-    /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        type: "button",
-        disabled: currentPage <= 1,
-        onClick: () => setCurrentPage((p) => Math.max(1, p - 1)),
-        className: `px-4 py-2 border border-border rounded-lg text-sm transition-colors cursor-pointer ${currentPage <= 1 ? "opacity-40 cursor-not-allowed" : "text-foreground hover:border-primary hover:text-primary"}`
-      },
-      "← Previous"
-    ),
-    Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        key: p,
-        type: "button",
-        onClick: () => setCurrentPage(p),
-        className: `w-9 h-9 rounded-lg text-sm font-medium transition-colors cursor-pointer ${p === currentPage ? "bg-primary text-primary-foreground font-bold shadow-xs" : "border border-border text-foreground hover:border-primary hover:text-primary"}`
-      },
-      p
-    )),
-    /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        type: "button",
-        disabled: currentPage >= totalPages,
-        onClick: () => setCurrentPage((p) => Math.min(totalPages, p + 1)),
-        className: `px-4 py-2 border border-border rounded-lg text-sm transition-colors cursor-pointer ${currentPage >= totalPages ? "opacity-40 cursor-not-allowed" : "text-foreground hover:border-primary hover:text-primary"}`
-      },
-      "Next →"
-    )
-  )))))
+  })), filtered.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-center gap-1.5 mt-5 pb-2" }, /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors" }, "Previous"), [1, 2, 3].map((p) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: p,
+      className: `w-9 h-9 rounded-lg text-sm font-medium transition-colors ${p === 1 ? "bg-primary text-primary-foreground" : "border border-border text-foreground hover:border-primary hover:text-primary"}`
+    },
+    p
+  )), /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 border border-border rounded-lg text-sm text-foreground hover:border-primary hover:text-primary transition-colors" }, "Next"))))));
 }
 
 export {

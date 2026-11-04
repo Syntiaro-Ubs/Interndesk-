@@ -71,8 +71,41 @@ async function resolveCompany(req) {
 // ── GET ALL / SEARCH ──────────────────────────────────────────
 export const getAllInternships = async (req, res) => {
   try {
-    const { q, location, category, department, workMode, minStipend, experience } = req.query;
+    const today = new Date().toISOString().split('T')[0];
+
+    // Background auto-expiry: Mark any past-deadline internships as 'Expired'
+    try {
+      await Internship.update(
+        { status: 'Expired' },
+        {
+          where: {
+            deadline: { [Op.lt]: today },
+            status: { [Op.notIn]: ['Closed', 'Expired'] }
+          }
+        }
+      );
+    } catch (syncErr) {
+      console.warn('Auto-expiry sync notice:', syncErr.message);
+    }
+
+    const { q, location, category, department, workMode, minStipend, includeExpired } = req.query;
     const where = {};
+
+    // Filter out expired & closed internships by default for public listings
+    if (includeExpired !== 'true') {
+      where[Op.and] = [
+        ...(where[Op.and] || []),
+        {
+          [Op.or]: [
+            { deadline: null },
+            { deadline: { [Op.gte]: today } }
+          ]
+        },
+        {
+          status: { [Op.notIn]: ['Closed', 'Expired'] }
+        }
+      ];
+    }
 
     if (q) {
       where[Op.or] = [
@@ -156,6 +189,12 @@ export const getInternshipById = async (req, res) => {
       job = await Internship.findByPk(id);
     }
     if (!job) return res.status(404).json({ error: 'Internship not found' });
+
+    const today = new Date().toISOString().split('T')[0];
+    if (job.deadline && job.deadline < today && job.status !== 'Closed' && job.status !== 'Expired') {
+      await job.update({ status: 'Expired' });
+    }
+
     return res.json(job.toJSON());
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -240,9 +279,18 @@ export const updateInternship = async (req, res) => {
     const job = await Internship.findByPk(req.params.id);
     if (!job) return res.status(404).json({ error: 'Internship not found' });
 
-    const newStatus = req.body.status
+    const today = new Date().toISOString().split('T')[0];
+    let newStatus = req.body.status
       ? req.body.status.toLowerCase() === 'published' ? 'Active' : req.body.status
       : job.status;
+
+    if (req.body.deadline) {
+      if (req.body.deadline < today) {
+        newStatus = 'Expired';
+      } else if (job.status === 'Expired' && (!req.body.status || req.body.status === 'Expired')) {
+        newStatus = 'Active';
+      }
+    }
 
     const skills = Array.isArray(req.body.skills)
       ? req.body.skills

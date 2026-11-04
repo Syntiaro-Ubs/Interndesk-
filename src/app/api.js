@@ -216,8 +216,8 @@ export const api = {
     return data;
   },
 
-  sendVerificationCode: async (email) => {
-    return post('/auth/send-otp', { email });
+  sendVerificationCode: async (email, mode = 'register') => {
+    return post('/auth/send-otp', { email, mode });
   },
 
   verifyEmail: async (credentials) => {

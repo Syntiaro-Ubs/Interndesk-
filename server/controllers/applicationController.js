@@ -131,6 +131,14 @@ export const applyForInternship = async (req, res) => {
       return res.status(404).json({ error: 'Internship not found' });
     }
 
+    const today = new Date().toISOString().split('T')[0];
+    if (job.deadline && job.deadline < today) {
+      return res.status(400).json({ error: 'Applications for this internship have closed because the deadline has passed.' });
+    }
+    if (job.status === 'Closed' || job.status === 'Expired') {
+      return res.status(400).json({ error: 'This internship is no longer accepting applications.' });
+    }
+
     const email = authenticatedEmail;
 
     // Check if already applied

@@ -6,8 +6,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "server": "node server/server.js",
-    "start": "node server/server.js",
+    "server": "node --watch server/server.js",
+    "start": "node --watch server/server.js",
     "dev:all": "concurrently -k -n BACKEND,FRONTEND -c blue,green \"node server/server.js\" \"vite\""
   },
   "dependencies": {
