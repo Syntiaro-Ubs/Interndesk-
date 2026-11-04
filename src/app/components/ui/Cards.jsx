@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { MapPin, Clock, CheckCircle, Calendar, Bookmark } from "lucide-react";
 import { ModeBadge, CategoryBadge, LogoMark, StarRating } from "./Badges";
 import { EasyApplyModal } from "../EasyApplyModal";
+import { formatDeadline } from "./utils";
 
 function InternshipCard({ internship, onNavigate, onSelectInternship, userInfo, isSaved = false, onToggleSaved, isApplied = false, onSuccess }) {
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -21,7 +22,7 @@ function InternshipCard({ internship, onNavigate, onSelectInternship, userInfo, 
       </div>
       <div className="flex items-center gap-2 flex-wrap mb-3"><span className="flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="w-3 h-3" />{internship.location}</span><span className="text-border">·</span><ModeBadge mode={internship.mode} /><span className="text-border">·</span><CategoryBadge category={internship.category} /></div>
       <div className="flex items-center gap-4 mb-3 text-xs"><span className="flex items-center gap-1 text-muted-foreground"><Clock className="w-3 h-3" />{internship.duration}</span></div>
-      <div className="flex items-center justify-between pt-3 border-t border-border"><span className="flex items-center gap-1 text-xs text-muted-foreground"><Calendar className="w-3 h-3" />Deadline: {internship.deadline}</span>{isApplied ? <span className="flex items-center justify-center gap-1 px-3 py-1.5 bg-[#00CC00] text-white font-bold rounded-lg text-xs"><CheckCircle className="w-3.5 h-3.5" />Applied</span> : <button onClick={() => setShowApplyModal(true)} className="px-3 py-1.5 bg-white border border-[#0a66c2] text-[#0a66c2] rounded-lg text-xs font-semibold hover:bg-emerald-50 transition-colors cursor-pointer">Easy Apply</button>}</div>
+      <div className="flex items-center justify-between pt-3 border-t border-border"><span className="flex items-center gap-1 text-xs text-muted-foreground"><Calendar className="w-3 h-3" />Deadline: {formatDeadline(internship.deadline)}</span>{isApplied ? <span className="flex items-center justify-center gap-1 px-3 py-1.5 bg-[#00CC00] text-white font-bold rounded-lg text-xs"><CheckCircle className="w-3.5 h-3.5" />Applied</span> : <button onClick={() => setShowApplyModal(true)} className="px-3 py-1.5 bg-white border border-[#0a66c2] text-[#0a66c2] rounded-lg text-xs font-semibold hover:bg-emerald-50 transition-colors cursor-pointer">Easy Apply</button>}</div>
       <p className="text-xs text-muted-foreground mt-2">Posted {internship.posted}</p>
     </div>
   );

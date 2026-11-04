@@ -118,7 +118,7 @@ export function ResumePaymentModal({ isOpen, onClose, draftId, userInfo, onDownl
       </div>
 
       {!isUnlocked && <label className="block text-xs font-semibold text-slate-700">Phone number for PayU checkout
-        <input value={phone} onChange={(event) => setPhone(event.target.value)} type="tel" autoComplete="tel" placeholder="10-digit phone number" className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+        <input value={phone} onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 10))} maxLength={10} inputMode="numeric" type="tel" autoComplete="tel" placeholder=" phone number" className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
       </label>}
 
       {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">{error}</p>}

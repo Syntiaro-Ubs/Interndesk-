@@ -187,6 +187,14 @@ function AuthPage({
 }) {
   const [mode, setMode] = useState(initialMode);
   const [role, setRole] = useState(initialRole);
+
+  useEffect(() => {
+    if (initialRole) setRole(initialRole);
+  }, [initialRole]);
+
+  useEffect(() => {
+    if (initialMode) setMode(initialMode);
+  }, [initialMode]);
   const [step, setStep] = useState("form");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -292,8 +300,14 @@ function AuthPage({
         setStep("email-verification");
       } else {
         const result = await api.login({ email, password, role });
-        saveCsrfToken(result.csrfToken);
         const { user } = result;
+
+        if (role !== "admin" && user.role === "admin") {
+          toast.error("Super Admin credentials can only be used on the dedicated Super Admin login page (/admin/login).");
+          return;
+        }
+
+        saveCsrfToken(result.csrfToken);
         setUserInfo({ ...user, profileComplete: Boolean(user.profileComplete) });
         setUserRole(user.role);
         setView(user.role === "admin" ? "admin" : user.role === "student" ? "student-home" : "company-portal");
@@ -316,11 +330,15 @@ function AuthPage({
     ? "Platform Control & Governance."
     : role === "student"
     ? (mode === "login" ? "Step into your future." : "Launch your career journey.")
+    : role === "admin"
+    ? "Platform Control & Governance."
     : (mode === "login" ? "Connecting forward-thinking companies." : "Build your dream team with top campus talent.");
   const brandDesc = role === "admin"
     ? "Super Admin access to oversee platform operations, regulate listings, and manage permissions."
     : role === "student"
     ? (mode === "login" ? "Find the perfect internship, track applications, and unlock exclusive opportunities." : "Join students discovering verified internship opportunities.")
+    : role === "admin"
+    ? "Super Admin access to oversee platform operations, regulate listings, and manage permissions."
     : (mode === "login" ? "Access your candidate pipeline, post new roles, and hire pre-vetted interns." : "Connect with candidates and manage your internship listings.");
 
   const brandLeft = /* @__PURE__ */ React.createElement("div", { className: "hidden md:flex md:w-1/2 relative flex-col justify-between overflow-hidden bg-[#0F2260]" },

@@ -8,8 +8,11 @@ function Navbar({ view, setView, userRole, setAuthParams, userInfo, logout }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const isStudent = userRole === "student";
   const isCompany = userRole === "company";
+  const isAdmin = userRole === "admin";
   const displayName = isCompany
     ? userInfo?.companyName || "Your Company"
+    : isAdmin
+    ? "Site Admin"
     : [userInfo?.firstName, userInfo?.lastName].filter(Boolean).join(" ") || "Student";
   const initial = displayName.charAt(0).toUpperCase();
 
@@ -39,7 +42,7 @@ function Navbar({ view, setView, userRole, setAuthParams, userInfo, logout }) {
   };
 
   const navItem = (targetView, Icon, label, badgeCount = 0) => (
-    <button type="button" onClick={() => navigate(targetView)} className={`relative flex h-full flex-col items-center justify-center whitespace-nowrap border-b-2 px-3 transition-colors ${view === targetView ? "border-[#0a66c2] font-semibold text-foreground" : "border-transparent text-black/60 hover:text-black"}`}>
+    <button type="button" onClick={() => navigate(targetView)} className={`relative flex h-full flex-col items-center justify-center whitespace-nowrap border-b-2 px-3 transition-colors ${view === targetView ? "border-[#0a66c2] font-semibold text-foreground" : "border-transparent text-black/60 hover:text-black cursor-pointer"}`}>
       <div className="relative">
         <Icon className="h-5 w-5" />
         {badgeCount > 0 && (
@@ -56,7 +59,7 @@ function Navbar({ view, setView, userRole, setAuthParams, userInfo, logout }) {
     <nav className="sticky top-0 z-50 hidden border-b border-[#e0dfdc] bg-white shadow-xs md:block">
       <div className="mx-auto h-[56px] max-w-[1128px] px-4 md:px-6">
         <div className="flex h-full w-full items-center justify-between">
-          <button type="button" onClick={() => { navigate("landing"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="flex items-center" aria-label="InternDesk home">
+          <button type="button" onClick={() => { navigate("landing"); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="flex items-center cursor-pointer" aria-label="InternDesk home">
             <img src={logoUrl} alt="InternDesk" className="h-11" />
           </button>
           {userRole === null ? (
@@ -65,8 +68,27 @@ function Navbar({ view, setView, userRole, setAuthParams, userInfo, logout }) {
               {navItem("companies", Building2, "Companies")}
               {navItem("career-resources", FileText, "Articles")}
               <div className="mx-2 h-8 w-px bg-[#e0dfdc]" />
-              <button type="button" onClick={() => { setAuthParams({ mode: "register", role: "student" }); navigate("auth"); }} className="rounded-full px-4 py-2 text-sm font-semibold text-black/75 hover:bg-black/5 hover:text-black">Join now</button>
-              <button type="button" onClick={() => { setAuthParams({ mode: "login", role: "student" }); navigate("auth"); }} className="rounded-full border border-[#0a66c2] px-5 py-1.5 text-sm font-semibold text-[#0a66c2] hover:bg-[#f4faff]">Sign in</button>
+              <button
+                type="button"
+                onClick={() => { setAuthParams({ mode: "register", role: "company" }); navigate("auth"); }}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer"
+              >
+                Employer
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthParams({ mode: "register", role: "student" }); navigate("auth"); }}
+                className="rounded-full px-4 py-2 text-sm font-semibold text-black/75 hover:bg-black/5 hover:text-black transition-colors cursor-pointer"
+              >
+                Join now
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthParams({ mode: "login", role: "student" }); navigate("auth"); }}
+                className="rounded-full border border-[#0a66c2] px-5 py-1.5 text-sm font-semibold text-[#0a66c2] hover:bg-[#f4faff] transition-colors cursor-pointer"
+              >
+                Sign in
+              </button>
             </div>
           ) : isStudent ? (
             <div className="flex h-full items-center">
@@ -93,6 +115,25 @@ function Navbar({ view, setView, userRole, setAuthParams, userInfo, logout }) {
                 Employer Portal
               </button>
               <UserMenu displayName={displayName} initial={initial} userInfo={userInfo} navigate={navigate} logout={logout} open={userMenuOpen} setOpen={setUserMenuOpen} student={false} />
+            </div>
+          ) : isAdmin ? (
+            <div className="flex h-full items-center gap-3">
+              {navItem("landing", Home, "Live Site")}
+              <button
+                type="button"
+                onClick={() => navigate("admin")}
+                className="flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                Admin Dashboard
+              </button>
+              <button
+                type="button"
+                onClick={logout}
+                className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-background transition-colors cursor-pointer"
+              >
+                Sign Out
+              </button>
             </div>
           ) : null}
         </div>

@@ -54,3 +54,21 @@ export const markAllNotificationsRead = async (req, res) => {
     return res.status(500).json({ error: err.message || 'Failed to mark all notifications as read' });
   }
 };
+
+export const createNotification = async (req, res) => {
+  try {
+    const userEmail = req.headers['x-user-email'] || req.body.email || 'support@interndesk.in';
+    const notif = await Notification.create({
+      userEmail: userEmail.toLowerCase(),
+      title: req.body.title || req.body.subject || 'Support Request Logged',
+      message: req.body.message || 'Thank you for contacting InternDesk. Our team has received your ticket.',
+      type: req.body.type || 'support',
+      isRead: false
+    });
+    req.app?.locals?.emit?.('notification_created', notif.toJSON());
+    return res.status(201).json(notif);
+  } catch (err) {
+    console.error('createNotification error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create notification' });
+  }
+};

@@ -1,0 +1,34 @@
+﻿// REPLACEMENT FOR getAdminNotifications in server/controllers/adminController.js
+// Lines 334-377 approximately
+
+export const getAdminNotifications = async (req, res) => {
+  try {
+    const { unread } = req.query;
+    const adminEmail = req.adminUser.email;
+
+    const where = { userEmail: adminEmail };
+    
+    if (unread === 'true') {
+      where.isRead = false;
+    }
+
+    const notifications = await Notification.findAll({
+      where,
+      order: [['createdAt', 'DESC']],
+      limit: 100
+    });
+
+    const unreadCount = await Notification.count({
+      where: { userEmail: adminEmail, isRead: false }
+    });
+
+    return res.json({
+      notifications: notifications.map(n => n.toJSON()),
+      unreadCount,
+      total: notifications.length
+    });
+  } catch (err) {
+    console.error('getAdminNotifications error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};

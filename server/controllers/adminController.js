@@ -122,10 +122,11 @@ export const getAllJobs = async (req, res) => {
     const { status, search, page = 1, limit = 20 } = req.query;
     const where = {};
     if (status && status !== 'all') where.status = status;
-    if (search) {
+    const cleanSearch = (search && search !== 'undefined' && search !== 'null') ? String(search).trim() : '';
+    if (cleanSearch) {
       where[Op.or] = [
-        { title: { [Op.like]: `%${search}%` } },
-        { company: { [Op.like]: `%${search}%` } }
+        { title: { [Op.like]: `%${cleanSearch}%` } },
+        { company: { [Op.like]: `%${cleanSearch}%` } }
       ];
     }
     const offset = (Number(page) - 1) * Number(limit);
@@ -186,7 +187,8 @@ export const getAllCompanies = async (req, res) => {
   try {
     const { search, verified, page = 1, limit = 20 } = req.query;
     const where = {};
-    if (search) where[Op.or] = [{ name: { [Op.like]: `%${search}%` } }, { recruiterEmail: { [Op.like]: `%${search}%` } }];
+    const cleanSearch = (search && search !== 'undefined' && search !== 'null') ? String(search).trim() : '';
+    if (cleanSearch) where[Op.or] = [{ name: { [Op.like]: `%${cleanSearch}%` } }, { recruiterEmail: { [Op.like]: `%${cleanSearch}%` } }];
     if (verified === 'true') where.isVerified = true;
     if (verified === 'false') where.isVerified = false;
     const offset = (Number(page) - 1) * Number(limit);
@@ -202,7 +204,8 @@ export const getAllStudents = async (req, res) => {
   try {
     const { search, page = 1, limit = 20 } = req.query;
     const where = { role: 'student' };
-    if (search) where[Op.or] = [{ name: { [Op.like]: `%${search}%` } }, { email: { [Op.like]: `%${search}%` } }];
+    const cleanSearch = (search && search !== 'undefined' && search !== 'null') ? String(search).trim() : '';
+    if (cleanSearch) where[Op.or] = [{ name: { [Op.like]: `%${cleanSearch}%` } }, { email: { [Op.like]: `%${cleanSearch}%` } }];
     const offset = (Number(page) - 1) * Number(limit);
     const { count, rows } = await User.findAndCountAll({ where, order: [['createdAt', 'DESC']], limit: Number(limit), offset, attributes: { exclude: ['password'] } });
 

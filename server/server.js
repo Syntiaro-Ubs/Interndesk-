@@ -11,6 +11,7 @@ import internshipRoutes from './routes/internshipRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import { downloadOwnedResume, uploadResume } from './controllers/applicationController.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,11 +88,16 @@ app.locals.emit = (event, payload) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', authRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/internships', internshipRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Direct resume assets access (supports frontend ${BASE_URL}/resumes/:key)
+app.get('/api/resumes/:key', downloadOwnedResume);
+app.post('/api/resumes', uploadResume);
 
 // General configuration endpoint
 app.get('/api/config', (req, res) => {
@@ -155,7 +161,7 @@ async function startServer() {
   try {
     await sequelize.authenticate();
     console.log('✅ Connected to MySQL Database via Sequelize.');
-    await sequelize.sync({ alter: true });
+    await sequelize.sync();
     console.log('✅ Sequelize Models Synced.');
   } catch (dbErr) {
     console.error('❌ Database Connection Error:', dbErr.message);
@@ -169,6 +175,8 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  startServer();
+}
 
 export default app;

@@ -14,8 +14,16 @@ import {
 import { api } from "../../api";
 import { toast } from "sonner";
 import { CategoryBadge, ModeBadge } from "../../components/ui/Badges";
+import { formatDeadline } from "../../components/ui/utils";
 
 const POSTED_OPTIONS = ["Any time", "Last 24 hours", "Last 3 days", "Last week", "Last month"];
+const EXPERIENCE_OPTIONS = [
+  "Entry Level / Fresher",
+  "1st & 2nd Year Student",
+  "Pre-final Year Student",
+  "Final Year Student",
+  "Recent Graduate"
+];
 const DEFAULT_IT_DEPTS = [
   "Software Development",
   "Data Science & AI",
@@ -52,6 +60,8 @@ function FilterPanel({
   setSelStipend,
   selDuration,
   setSelDuration,
+  selExperience,
+  setSelExperience,
   selPosted,
   setSelPosted,
   activeCount,
@@ -113,6 +123,14 @@ function FilterPanel({
       checked: selDuration.includes(d),
       onChange: () => toggleArr(selDuration, setSelDuration, d)
     }
+  ))), /* @__PURE__ */ React.createElement(Section, { title: "Experience Level" }, EXPERIENCE_OPTIONS.map((exp) => /* @__PURE__ */ React.createElement(
+    CheckRow,
+    {
+      key: exp,
+      label: exp,
+      checked: (selExperience || []).includes(exp),
+      onChange: () => toggleArr(selExperience, setSelExperience, exp)
+    }
   ))), /* @__PURE__ */ React.createElement(Section, { title: "Posted Within" }, POSTED_OPTIONS.map((p) => /* @__PURE__ */ React.createElement(
     RadioRow,
     {
@@ -125,13 +143,19 @@ function FilterPanel({
   ))));
 }
 
-function SearchPage({ setView, userRole, onSelectInternship }) {
+function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
   const [allJobs, setAllJobs] = useState([]);
   const [filterOptions, setFilterOptions] = useState({ categories: [], departments: [], workModes: [], durations: [] });
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [locationTerm, setLocationTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(initialFilters?.query || "");
+  const [locationTerm, setLocationTerm] = useState(initialFilters?.location || "");
+  const [selExperience, setSelExperience] = useState(() => {
+    if (initialFilters?.experience && initialFilters.experience !== "All Experience Levels") {
+      return [initialFilters.experience];
+    }
+    return [];
+  });
   const [selCat, setSelCat] = useState([]);
   const [selDept, setSelDept] = useState([]);
   const [selMode, setSelMode] = useState([]);
@@ -141,6 +165,21 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
   const [sortBy, setSortBy] = useState("Newest");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [savedIds, setSavedIds] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    if (initialFilters) {
+      if (initialFilters.query !== undefined) setSearchTerm(initialFilters.query || "");
+      if (initialFilters.location !== undefined) setLocationTerm(initialFilters.location || "");
+      if (initialFilters.experience !== undefined) {
+        setSelExperience(
+          initialFilters.experience && initialFilters.experience !== "All Experience Levels"
+            ? [initialFilters.experience]
+            : []
+        );
+      }
+    }
+  }, [initialFilters]);
 
   useEffect(() => {
     let active = true;
@@ -168,6 +207,7 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
       if (selMode.length) params.set("workMode", selMode.join(","));
       if (selStipend !== "Any Stipend") params.set("minStipend", String(Number(selStipend.replace(/[^0-9]/g, ""))));
       if (selDuration.length) params.set("duration", selDuration.join(","));
+      if (selExperience.length) params.set("experience", selExperience.join(","));
       const postedDays = { "Last 24 hours": 1, "Last 3 days": 3, "Last week": 7, "Last month": 30 }[selPosted];
       if (postedDays) params.set("postedWithin", String(postedDays));
 
@@ -187,7 +227,7 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
       window.removeEventListener("interndesk:sync", handleSync);
       window.removeEventListener("storage", handleSync);
     };
-  }, [searchTerm, locationTerm, selCat.join(","), selDept.join(","), selMode.join(","), selStipend, selDuration.join(","), selPosted]);
+  }, [searchTerm, locationTerm, selCat.join(","), selDept.join(","), selMode.join(","), selStipend, selDuration.join(","), selExperience.join(","), selPosted]);
 
   useEffect(() => {
     if (userRole !== "student") return;
@@ -201,10 +241,12 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
     setSelDept([]);
     setSelMode([]);
     setSelDuration([]);
+    setSelExperience([]);
     setSearchTerm("");
     setLocationTerm("");
     setSelStipend("Any Stipend");
     setSelPosted("Any time");
+    setCurrentPage(1);
   };
 
   const handleQuickPill = (type, value) => {
@@ -224,6 +266,7 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
   const activeFilters = [
     ...searchTerm ? [{ label: `Query: "${searchTerm}"`, onRemove: () => setSearchTerm("") }] : [],
     ...locationTerm ? [{ label: `Location: "${locationTerm}"`, onRemove: () => setLocationTerm("") }] : [],
+    ...selExperience.map((e) => ({ label: `Exp: ${e}`, onRemove: () => setSelExperience((p) => p.filter((x) => x !== e)) })),
     ...selCat.map((c) => ({ label: `Category: ${c}`, onRemove: () => setSelCat((p) => p.filter((x) => x !== c)) })),
     ...selDept.map((d) => ({ label: `Dept: ${d}`, onRemove: () => setSelDept((p) => p.filter((x) => x !== d)) })),
     ...selMode.map((m) => ({ label: m, onRemove: () => setSelMode((p) => p.filter((x) => x !== m)) })),
@@ -268,6 +311,10 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
     return true;
   });
 
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginatedJobs = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
   const filterProps = {
     ...filterOptions,
     selCat,
@@ -280,6 +327,8 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
     setSelStipend,
     selDuration,
     setSelDuration,
+    selExperience,
+    setSelExperience,
     selPosted,
     setSelPosted,
     activeCount: activeFilters.length,
@@ -332,7 +381,7 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
       className: "appearance-none text-xs font-semibold border border-border rounded-lg pl-3 pr-7 py-2 bg-card outline-none focus:border-primary cursor-pointer text-foreground"
     },
     ["Newest", "Highest Stipend", "Most Relevant", "Deadline"].map((o) => /* @__PURE__ */ React.createElement("option", { key: o }, o))
-  ), /* @__PURE__ */ React.createElement(ChevronDown, { className: "w-3 h-3 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" })))), !loading && !loadError && filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center justify-center py-12 text-center bg-card border border-border rounded-2xl p-6" }, /* @__PURE__ */ React.createElement("div", { className: "w-14 h-14 bg-background rounded-2xl flex items-center justify-center mb-4" }, /* @__PURE__ */ React.createElement(BriefcaseIcon, { className: "w-7 h-7 text-muted-foreground" })), /* @__PURE__ */ React.createElement("h3", { className: "text-base font-bold text-foreground mb-1" }, "No internships match your selected category or filters"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-muted-foreground mb-5" }, "Try selecting another department or clearing your filters."), /* @__PURE__ */ React.createElement("button", { onClick: clearAll, className: "px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors cursor-pointer" }, "Show All Internships")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, filtered.map((internship) => {
+  ), /* @__PURE__ */ React.createElement(ChevronDown, { className: "w-3 h-3 text-muted-foreground absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" })))), !loading && !loadError && filtered.length === 0 ? /* @__PURE__ */ React.createElement("div", { className: "flex flex-col items-center justify-center py-12 text-center bg-card border border-border rounded-2xl p-6" }, /* @__PURE__ */ React.createElement("div", { className: "w-14 h-14 bg-background rounded-2xl flex items-center justify-center mb-4" }, /* @__PURE__ */ React.createElement(BriefcaseIcon, { className: "w-7 h-7 text-muted-foreground" })), /* @__PURE__ */ React.createElement("h3", { className: "text-base font-bold text-foreground mb-1" }, "No internships match your selected category or filters"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-muted-foreground mb-5" }, "Try selecting another department or clearing your filters."), /* @__PURE__ */ React.createElement("button", { onClick: clearAll, className: "px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors cursor-pointer" }, "Show All Internships")) : /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, paginatedJobs.map((internship) => {
     const isSaved = savedIds.includes(internship.id);
     return /* @__PURE__ */ React.createElement(
       "div",
@@ -364,7 +413,7 @@ function SearchPage({ setView, userRole, onSelectInternship }) {
         },
         /* @__PURE__ */ React.createElement(Bookmark, { className: `w-5 h-5 ${isSaved ? "fill-[#0a66c2]" : ""}` })
       ))),
-      /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mt-3 pt-3 border-t border-[#e0dfdc]" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 text-xs text-black/50" }, /* @__PURE__ */ React.createElement("span", null, "Posted ", internship.posted), internship.deadline && /* @__PURE__ */ React.createElement("span", null, "Apply by ", internship.deadline)), /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mt-3 pt-3 border-t border-[#e0dfdc]" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 text-xs text-black/50" }, /* @__PURE__ */ React.createElement("span", null, "Posted ", internship.posted), internship.deadline && /* @__PURE__ */ React.createElement("span", null, "Apply by ", formatDeadline(internship.deadline))), /* @__PURE__ */ React.createElement(
         "button",
         {
           onClick: (e) => {

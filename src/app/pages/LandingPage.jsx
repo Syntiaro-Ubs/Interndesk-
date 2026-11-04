@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Search, MapPin, Building2, ChevronRight, ArrowRight, GraduationCap, BookOpen, Users, Play, ChevronDown, ChevronUp, CheckCircle, Home as HomeIcon, Briefcase, BarChart3, Glasses, Heart, UserCheck, PenTool, DollarSign, TrendingUp, Settings, Code, Sparkles, CheckCircle2, Star, ShieldCheck } from "lucide-react";
 import { api } from "../api";
 import heroBannerImg from "../../assets/home_hero_banner.jpg";
-function LandingPage({ setView, setAuthParams, onSelectInternship }) {
+function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
   const [internships, setInternships] = useState([]);
   const [internshipError, setInternshipError] = useState("");
   const [internshipsLoading, setInternshipsLoading] = useState(true);
@@ -11,6 +11,22 @@ function LandingPage({ setView, setAuthParams, onSelectInternship }) {
   const [locationQuery, setLocationQuery] = useState("");
   const [experienceOpen, setExperienceOpen] = useState(false);
   const [selectedExperience, setSelectedExperience] = useState("");
+  const experienceRef = useRef(null);
+
+  useEffect(() => {
+    if (!experienceOpen) return;
+    const handleClickOutside = (e) => {
+      if (experienceRef.current && !experienceRef.current.contains(e.target)) {
+        setExperienceOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [experienceOpen]);
 
   useEffect(() => {
     let active = true;
@@ -69,7 +85,6 @@ function LandingPage({ setView, setAuthParams, onSelectInternship }) {
 
   const itCategories = categoryGroups("IT");
   const nonItCategories = categoryGroups("NON IT");
-  const heroCategories = [...new Set(internships.map((job) => job.department || job.category).filter(Boolean))].slice(0, 5).map((label) => ({ label, icon: Briefcase }));
   const quickSearches = [...itCategories, ...nonItCategories].slice(0, 3).map((item) => ({ label: item.name, count: `${item.count} open internships` }));
 
   const filteredTrackJobs = internships.filter((job) => {

@@ -64,8 +64,8 @@ function StudentProfile({ setView, userInfo }) {
       setTools(details.tools || "");
       setProjects(details.projects || []);
       setCerts(details.certifications || []);
-      setAvatarUrl(details.avatar || null);
-      setCoverUrl(details.cover || DEFAULT_COVER);
+      setAvatarUrl(details.avatar || saved.avatar || null);
+      setCoverUrl(details.cover || saved.coverImage || DEFAULT_COVER);
       setResumeName(details.resumeName || (saved.resumeKey ? saved.resumeKey.split("/").pop() : ""));
       setResumeDate(details.resumeUpdatedAt ? new Date(details.resumeUpdatedAt).toLocaleDateString() : "");
     }).catch((error) => { if (active) toast.error(error.message || "Could not load your profile."); });
@@ -119,7 +119,10 @@ function StudentProfile({ setView, userInfo }) {
   const persistProfileData = async (key, value) => {
     const next = { ...profileData, [key]: value };
     try {
-      await api.updateStudentProfile({ profileData: next });
+      const payload = { profileData: next };
+      if (key === "avatar") payload.avatar = value;
+      if (key === "cover") payload.coverImage = value;
+      await api.updateStudentProfile(payload);
       setProfileData(next);
       if (key === "avatar") setAvatarUrl(value);
       if (key === "cover") setCoverUrl(value);
@@ -134,9 +137,24 @@ function StudentProfile({ setView, userInfo }) {
   const handleImage = async (event, key) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/") || file.size > 1_500_000) { toast.error("Choose an image smaller than 1.5 MB."); return; }
-    try { await persistProfileData(key, await readDataUrl(file)); }
-    catch (error) { toast.error(error.message || "Could not save this image."); }
+    if (!file.type.startsWith("image/") || file.size > 5_000_000) {
+      toast.error("Choose an image smaller than 5 MB.");
+      return;
+    }
+    try {
+      const type = key === "cover" ? "cover" : "avatar";
+      const uploaded = await api.uploadPhoto(file, type);
+      if (uploaded?.url) {
+        if (key === "avatar") setAvatarUrl(uploaded.url);
+        if (key === "cover") setCoverUrl(uploaded.url);
+        setProfileData((prev) => ({ ...prev, [key]: uploaded.url }));
+        toast.success(key === "cover" ? "Cover photo updated!" : "Profile photo updated!");
+      }
+    } catch (error) {
+      toast.error(error.message || "Could not upload image.");
+    } finally {
+      if (event.target) event.target.value = "";
+    }
   };
   const handleAvatar = (event) => handleImage(event, "avatar");
   const handleCover = (event) => handleImage(event, "cover");

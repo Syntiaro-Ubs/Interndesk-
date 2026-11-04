@@ -81,7 +81,8 @@ const Application = sequelize.define('Application', {
   },
   score: {
     type: DataTypes.INTEGER,
-    defaultValue: 88
+    allowNull: true,
+    defaultValue: null
   },
   resumeKey: {
     type: DataTypes.STRING(512),

@@ -53,6 +53,62 @@ const User = sequelize.define('User', {
   profileComplete: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  avatar: {
+    type: DataTypes.TEXT('long'),
+    allowNull: true
+  },
+  coverImage: {
+    type: DataTypes.TEXT('long'),
+    allowNull: true
+  },
+  phone: {
+    type: DataTypes.STRING(50),
+    defaultValue: ''
+  },
+  college: {
+    type: DataTypes.STRING(255),
+    defaultValue: ''
+  },
+  degree: {
+    type: DataTypes.STRING(255),
+    defaultValue: ''
+  },
+  gradYear: {
+    type: DataTypes.STRING(50),
+    defaultValue: ''
+  },
+  cgpa: {
+    type: DataTypes.STRING(50),
+    defaultValue: ''
+  },
+  bio: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  skills: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    get() {
+      try { return JSON.parse(this.getDataValue('skills') || '[]'); } catch { return []; }
+    },
+    set(val) {
+      this.setDataValue('skills', JSON.stringify(Array.isArray(val) ? val : []));
+    }
+  },
+  resumeKey: {
+    type: DataTypes.STRING(255),
+    defaultValue: ''
+  },
+  profileData: {
+    type: DataTypes.TEXT('long'),
+    allowNull: true,
+    get() {
+      try { return JSON.parse(this.getDataValue('profileData') || '{}'); } catch { return {}; }
+    },
+    set(val) {
+      this.setDataValue('profileData', JSON.stringify(val || {}));
+    }
   }
 }, {
   tableName: 'users',

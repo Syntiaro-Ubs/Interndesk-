@@ -3,11 +3,14 @@ import { Search, MapPin, Briefcase, ChevronDown, CheckCircle, Calendar, FileText
 import { api } from "../../api";
 import { InternshipCard } from "../../components/ui/Cards";
 import { EasyApplyModal } from "../../components/EasyApplyModal";
+import { CAREER_RESOURCES } from "./CareerResources";
 import logoUrl from "../../../assets/interndesknewlogos.png";
 import { toast } from "sonner";
 
-function StudentHome({ setView, userInfo, onSelectInternship }) {
+function StudentHome({ setView, userInfo, onSelectInternship, onSearch }) {
   const [internships, setInternships] = useState([]);
+  const [tabletSearchQuery, setTabletSearchQuery] = useState("");
+  const [tabletLocationQuery, setTabletLocationQuery] = useState("");
   const [profileSkills, setProfileSkills] = useState([]);
   const [selectedForApply, setSelectedForApply] = useState(null);
   const [appliedIds, setAppliedIds] = useState([]);
@@ -81,13 +84,13 @@ function StudentHome({ setView, userInfo, onSelectInternship }) {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex items-center gap-2 flex-1 px-4 py-3 bg-background rounded-lg">
               <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-              <input type="text" placeholder="Search internships, companies, or skills" className="bg-transparent text-sm outline-none w-full min-w-0" />
+              <input type="text" value={tabletSearchQuery} onChange={(e) => setTabletSearchQuery(e.target.value)} placeholder="Search internships, companies, or skills" className="bg-transparent text-sm outline-none w-full min-w-0" />
             </div>
             <div className="flex items-center gap-2 sm:w-64 px-4 py-3 bg-background rounded-lg">
               <MapPin className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-              <input type="text" placeholder="City, state, or remote" className="bg-transparent text-sm outline-none w-full min-w-0" />
+              <input type="text" value={tabletLocationQuery} onChange={(e) => setTabletLocationQuery(e.target.value)} placeholder="City, state, or remote" className="bg-transparent text-sm outline-none w-full min-w-0" />
             </div>
-            <button onClick={() => setView("search")} className="px-8 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap">Search</button>
+            <button onClick={() => { if (onSearch) onSearch({ query: tabletSearchQuery, location: tabletLocationQuery }); else setView("search"); }} className="px-8 py-3 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors whitespace-nowrap">Search</button>
           </div>
         </div>
 
@@ -287,8 +290,23 @@ function StudentHome({ setView, userInfo, onSelectInternship }) {
               )}
             </div>
             <div className="hidden lg:flex flex-wrap justify-center gap-x-4 gap-y-2 px-6 py-4 text-center">
-              {["About", "Accessibility", "Help Center", "Privacy & Terms", "Ad Choices", "Advertising", "Business Services"].map((l) => (
-                <span key={l} className="text-[12px] text-muted-foreground hover:text-primary cursor-pointer hover:underline">{l}</span>
+              {[
+                { label: "About", view: "landing" },
+                { label: "Accessibility", view: "help" },
+                { label: "Help Center", view: "help" },
+                { label: "Privacy & Terms", view: "settings-privacy" },
+                { label: "Ad Choices", view: "help" },
+                { label: "Advertising", view: "companies" },
+                { label: "Business Services", view: "company-portal" }
+              ].map((l) => (
+                <button
+                  type="button"
+                  key={l.label}
+                  onClick={() => setView(l.view)}
+                  className="text-[12px] text-muted-foreground hover:text-primary cursor-pointer hover:underline bg-transparent border-0 p-0"
+                >
+                  {l.label}
+                </button>
               ))}
               <div className="w-full flex items-center justify-center gap-2 mt-2">
                 <img src={logoUrl} alt="InternDesk" className="h-4" />

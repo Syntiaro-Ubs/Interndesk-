@@ -138,6 +138,39 @@ export const getAllInternships = async (req, res) => {
       const min = Number(minStipend);
       if (!isNaN(min) && min > 0) where.stipendNum = { [Op.gte]: min };
     }
+    if (experience && experience !== 'All Experience Levels') {
+      const expList = experience.split(',').map(e => e.trim()).filter(e => e && e !== 'All Experience Levels');
+      if (expList.length > 0) {
+        const expConditions = [];
+        for (const exp of expList) {
+          const keywords = [exp];
+          const expLow = exp.toLowerCase();
+          if (expLow.includes('fresher') || expLow.includes('entry level')) {
+            keywords.push('fresher', 'entry level', 'beginner', '0-1', '0 year', 'freshers');
+          } else if (expLow.includes('1st') || expLow.includes('2nd')) {
+            keywords.push('1st', '2nd', 'first year', 'second year');
+          } else if (expLow.includes('pre-final')) {
+            keywords.push('pre-final', '3rd', 'third year');
+          } else if (expLow.includes('final')) {
+            keywords.push('final', '4th', 'fourth year', 'graduating');
+          } else if (expLow.includes('graduate')) {
+            keywords.push('graduate', 'recent graduate', 'passout', 'bachelor');
+          }
+          for (const kw of keywords) {
+            expConditions.push({ experienceLevel: { [Op.like]: `%${kw}%` } });
+            expConditions.push({ eligibility: { [Op.like]: `%${kw}%` } });
+            expConditions.push({ title: { [Op.like]: `%${kw}%` } });
+            expConditions.push({ description: { [Op.like]: `%${kw}%` } });
+            expConditions.push({ responsibilities: { [Op.like]: `%${kw}%` } });
+          }
+        }
+        expConditions.push({ experienceLevel: 'All Experience Levels' });
+        expConditions.push({ experienceLevel: '' });
+        expConditions.push({ experienceLevel: null });
+
+        where[Op.and] = [...(where[Op.and] || []), { [Op.or]: expConditions }];
+      }
+    }
 
     const list = await Internship.findAll({ where, order: [['createdAt', 'DESC']] });
     return res.json(list.map(i => i.toJSON()));
@@ -217,6 +250,7 @@ export const createInternship = async (req, res) => {
       description: req.body.description || '',
       responsibilities: req.body.responsibilities || '',
       eligibility: req.body.eligibility || '',
+      experienceLevel: req.body.experienceLevel || req.body.experience || 'All Experience Levels',
       minCgpa: req.body.minCgpa !== undefined && req.body.minCgpa !== '' ? Number(req.body.minCgpa) : null,
       selectionSteps,
       status: 'Review',
@@ -283,6 +317,7 @@ export const updateInternship = async (req, res) => {
       stipend: stipendFormatted,
       workMode: req.body.mode || req.body.workMode || job.workMode,
       mode: req.body.mode || req.body.workMode || job.mode,
+      experienceLevel: req.body.experienceLevel || req.body.experience || job.experienceLevel,
       minCgpa: req.body.minCgpa !== undefined && req.body.minCgpa !== '' ? Number(req.body.minCgpa) : job.minCgpa,
       selectionSteps: req.body.selectionSteps !== undefined ? req.body.selectionSteps : job.selectionSteps
     });

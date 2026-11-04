@@ -16,7 +16,7 @@ async function seed() {
       where: { email: ADMIN_EMAIL },
       defaults: {
         email: ADMIN_EMAIL,
-        password: '',
+        password: ADMIN_PASSWORD,
         name: ADMIN_NAME,
         firstName: 'Site',
         lastName: 'Admin',
@@ -26,7 +26,7 @@ async function seed() {
     });
 
     if (!created) {
-      await user.update({ role: 'admin', name: ADMIN_NAME });
+      await user.update({ role: 'admin', name: ADMIN_NAME, password: ADMIN_PASSWORD });
       console.log(`Updated existing user to admin: ${ADMIN_EMAIL}`);
     } else {
       console.log(`Admin account created: ${ADMIN_EMAIL}`);

@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   GraduationCap,
   User,
@@ -135,10 +135,12 @@ function AvatarPicker({ value, onChange, name }) {
       className: "hidden",
       onChange: (e) => {
         const file = e.target.files?.[0];
-        if (file && file.type.startsWith("image/") && file.size <= 1_500_000) {
-          const reader = new FileReader();
-          reader.onload = () => onChange(reader.result);
-          reader.readAsDataURL(file);
+        if (file && file.type.startsWith('image/') && file.size <= 5_000_000) {
+          api.uploadPhoto(file, 'avatar').then((res) => {
+            if (res?.url) onChange(res.url);
+          }).catch((err) => {
+            console.warn('Avatar upload failed:', err);
+          });
         }
       }
     }

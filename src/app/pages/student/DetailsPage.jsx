@@ -3,6 +3,7 @@ import { ArrowLeft, Briefcase, Calendar, MapPin, Users, AlertCircle } from "luci
 import { api } from "../../api";
 import { CategoryBadge, ModeBadge } from "../../components/ui/Badges";
 import { EasyApplyModal } from "../../components/EasyApplyModal";
+import { formatDeadline } from "../../components/ui/utils";
 
 export function DetailsPage({ setView, onRequireSignup, internship: selectedInternship, userInfo }) {
   const [showApplyModal, setShowApplyModal] = useState(false);

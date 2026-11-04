@@ -92,7 +92,21 @@ function ApplicationsPage({ setView, userInfo, onSelectInternship }) {
     },
     /* @__PURE__ */ React.createElement("span", null, "View Internship Details"),
     /* @__PURE__ */ React.createElement(ChevronRight, { className: "w-4 h-4" })
-  ), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 self-end sm:self-auto" }, app.status === "Offer Received" && /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-bold transition-colors cursor-pointer shadow-2xs" }, "Accept Offer"), app.status === "Interview Scheduled" && /* @__PURE__ */ React.createElement("button", { className: "px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-full text-xs font-bold transition-colors cursor-pointer shadow-2xs" }, "View Interview Schedule"), /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 self-end sm:self-auto" }, app.status === "Offer Received" && /* @__PURE__ */ React.createElement("button", {
+  onClick: async () => {
+    try {
+      await api.updateApplicationStatus(app.id, { status: "Hired", statusLabel: "Offer Accepted" });
+      toast.success("Congratulations! Offer accepted.");
+      window.dispatchEvent(new CustomEvent("interndesk:sync"));
+    } catch (err) {
+      toast.error(err.message || "Could not accept offer.");
+    }
+  },
+  className: "px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+}, "Accept Offer"), app.status === "Interview Scheduled" && /* @__PURE__ */ React.createElement("button", {
+  onClick: () => openChat(app),
+  className: "px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-full text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+}, "View Interview Schedule"), /* @__PURE__ */ React.createElement(
     "button",
     {
       onClick: () => openChat(app),
