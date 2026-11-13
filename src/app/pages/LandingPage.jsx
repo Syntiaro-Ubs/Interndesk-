@@ -97,8 +97,8 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
   });
   return /* @__PURE__ */ React.createElement("div", { className: "bg-[#f3f2ef] min-h-screen text-[#1f2937] font-sans antialiased selection:bg-[#0a66c2]/20" },
 
-    /* â”€â”€ HERO SECTION WITH BANNER BACKGROUND â”€â”€ */
-    React.createElement("section", { className: "relative overflow-hidden border-b border-[#e0dfdc] pt-14 pb-12 lg:pt-20 lg:pb-16" },
+    /* ── HERO SECTION WITH BANNER BACKGROUND ── */
+    React.createElement("section", { className: "relative z-20 border-b border-[#e0dfdc] pt-14 pb-20 sm:pb-28 lg:pt-20 lg:pb-32" },
 
       /* Banner Background Image with balanced lighting overlays */
       React.createElement("div", { className: "absolute inset-0 z-0 pointer-events-none overflow-hidden" },
@@ -132,7 +132,7 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
         ),
 
         /* Search Bar */
-        React.createElement("div", { className: "mt-8 bg-white/95 backdrop-blur-md rounded-full border border-[#cbd5e1] shadow-xl shadow-slate-900/10 hover:shadow-2xl transition-shadow flex items-center px-2 py-1.5 sm:px-3 sm:py-2 gap-0 relative" },
+        React.createElement("div", { className: "mt-8 bg-white/95 backdrop-blur-md rounded-full border border-[#cbd5e1] shadow-xl shadow-slate-900/10 hover:shadow-2xl transition-shadow flex items-center px-2 py-1.5 sm:px-3 sm:py-2 gap-0 relative z-30" },
 
           /* Skills / Designation input */
           React.createElement("div", { className: "flex items-center gap-2 flex-1 min-w-0 px-3" },
@@ -150,7 +150,7 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
           React.createElement("div", { className: "hidden sm:block w-px h-7 bg-[#d4d2cf] flex-shrink-0" }),
 
           /* Experience dropdown */
-          React.createElement("div", { className: "hidden sm:block relative" },
+          React.createElement("div", { ref: experienceRef, className: "hidden sm:block relative" },
             React.createElement("button", {
               type: "button",
               onClick: () => setExperienceOpen(!experienceOpen),
@@ -159,7 +159,7 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
               React.createElement("span", null, selectedExperience || "Select experience"),
               React.createElement(ChevronDown, { className: `w-4 h-4 transition-transform ${experienceOpen ? "rotate-180" : ""}` })
             ),
-            experienceOpen && React.createElement("div", { className: "absolute top-full left-0 mt-2 w-44 bg-white border border-[#e0dfdc] rounded-xl shadow-xl z-50 py-1 animate-in fade-in slide-in-from-top-2 duration-200" },
+            experienceOpen && React.createElement("div", { className: "absolute top-full left-0 mt-2 w-56 sm:w-60 bg-white border border-[#cbd5e1] rounded-2xl shadow-2xl z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-200 overflow-hidden" },
               experienceOptions.map((opt) =>
                 React.createElement("button", {
                   key: opt,
@@ -189,34 +189,24 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
           /* Search button */
           React.createElement("button", {
             type: "button",
-            onClick: () => setView("search"),
+            onClick: () => {
+              const filters = {};
+              if (searchQuery.trim()) filters.query = searchQuery.trim();
+              if (locationQuery.trim()) filters.location = locationQuery.trim();
+              if (selectedExperience && selectedExperience !== "All Experience Levels") {
+                filters.experience = [selectedExperience];
+              }
+              if (onSearch) {
+                onSearch(filters);
+              } else {
+                setView("search");
+              }
+            },
             className: "ml-1 px-5 sm:px-7 py-2.5 sm:py-3 bg-[#4a3aff] hover:bg-[#3d2fd6] text-white text-sm sm:text-[15px] font-bold rounded-full transition-all shadow-md hover:shadow-lg cursor-pointer flex-shrink-0 active:scale-95"
           }, "Search")
-        ),
-
-        /* Category chips */
-        React.createElement("div", { className: "mt-8 flex flex-wrap justify-center gap-2.5 sm:gap-3" },
-          heroCategories.map((cat) =>
-            React.createElement("button", {
-              key: cat.label,
-              type: "button",
-              onClick: () => setView("search"),
-              className: "group flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm border border-[#d8d6d2] rounded-full text-sm text-black/75 font-medium hover:border-[#4a3aff]/60 hover:text-[#4a3aff] hover:bg-white hover:shadow-md transition-all cursor-pointer"
-            },
-              React.createElement(cat.icon, { className: "w-4 h-4 text-black/45 group-hover:text-[#4a3aff] transition-colors" }),
-              React.createElement("span", null, cat.label),
-              React.createElement(ChevronRight, { className: "w-3.5 h-3.5 text-black/35 group-hover:text-[#4a3aff] transition-colors" })
-            )
-          )
         )
       )
     ),
-
-    /* Close the experience dropdown when clicking outside */
-    experienceOpen && React.createElement("div", {
-      className: "fixed inset-0 z-40",
-      onClick: () => setExperienceOpen(false)
-    }),
 
   /* @__PURE__ */ React.createElement("section", { className: "py-6 bg-[#f3f2ef] border-b border-[#e0dfdc]" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-[1128px] mx-auto px-4 sm:px-6" }, /* @__PURE__ */ React.createElement("div", { className: "flex flex-col md:flex-row md:items-center justify-between mb-6 gap-2" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h2", { className: "text-2xl sm:text-3xl font-extralight text-foreground" }, "Find the right internship or job for you"), /* @__PURE__ */ React.createElement("p", { className: "text-sm text-black/60 mt-1" }, "Browse open roles by domain specialties")), /* @__PURE__ */ React.createElement(
       "button",

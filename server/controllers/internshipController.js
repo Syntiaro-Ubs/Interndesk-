@@ -151,9 +151,6 @@ export const getAllInternships = async (req, res) => {
             { deadline: null },
             { deadline: { [Op.gte]: todayStr } }
           ]
-        },
-        {
-          status: { [Op.notIn]: ['Closed', 'Expired'] }
         }
       ];
     } else if (status && status !== 'all') {
@@ -243,7 +240,7 @@ export const getInternshipById = async (req, res) => {
     }
     if (!job) return res.status(404).json({ error: 'Internship not found' });
     const today = new Date().toISOString().split('T')[0];
-    if (job.deadline && job.deadline < today && job.status !== 'Closed' && job.status !== 'Expired') {
+    if (job.deadline && String(job.deadline).slice(0, 10) < today && job.status !== 'Closed' && job.status !== 'Expired') {
       await job.update({ status: 'Expired' });
     }
 

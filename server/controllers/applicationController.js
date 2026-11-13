@@ -132,8 +132,11 @@ export const applyForInternship = async (req, res) => {
     }
 
     const todayStr = new Date().toISOString().split('T')[0];
-    if (job.status === 'Closed' || job.status === 'Expired' || (job.deadline && String(job.deadline).slice(0, 10) < todayStr)) {
+    if (job.deadline && String(job.deadline).slice(0, 10) < todayStr) {
       return res.status(400).json({ error: 'Applications for this internship have closed because the deadline has passed.' });
+    }
+    if (job.status === 'Closed' || job.status === 'Expired') {
+      return res.status(400).json({ error: 'This internship is no longer accepting applications.' });
     }
 
     const email = authenticatedEmail;

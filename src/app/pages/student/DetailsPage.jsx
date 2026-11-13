@@ -59,16 +59,12 @@ export function DetailsPage({ setView, onRequireSignup, internship: selectedInte
           Back to internships
         </button>
 
-        {isExpired && (
+        {!isOpen && (
           <div className="mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-900 dark:text-amber-200">
             <div className="flex items-center gap-2.5 text-sm">
               <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
               <span>
-                <strong>Applications Closed:</strong> The deadline for this internship ended on{" "}
-                <span className="font-semibold underline">
-                  {formatDeadline(selectedInternship.deadline)}
-                </span>
-                . This opening is no longer accepting new applications.
+                <strong>Applications Closed:</strong> The deadline for this internship ({formatDeadline(selectedInternship.deadline)}) has passed. This opening is no longer accepting new applications.
               </span>
             </div>
             <button
@@ -92,22 +88,22 @@ export function DetailsPage({ setView, onRequireSignup, internship: selectedInte
               </div>
             </div>
             <button
-              disabled={isApplied || isExpired}
+              disabled={isApplied || !isOpen}
               onClick={() => {
-                if (isExpired) return;
+                if (!isOpen) return;
                 setApplicationError("");
                 if (!userInfo?.id) { onRequireSignup?.(); return; }
                 setShowApplyModal(true);
               }}
               className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                isExpired
+                !isOpen
                   ? "bg-muted text-muted-foreground cursor-not-allowed border border-border opacity-70"
                   : isApplied
                   ? "bg-[#00CC00] text-white"
                   : "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
               }`}
             >
-              {isExpired ? "Applications Closed (Deadline Passed)" : isApplied ? "Applied" : "Apply"}
+              {!isOpen ? "Applications Closed" : isApplied ? "Applied" : "Apply"}
             </button>
           </div>
           {applicationError && <p role="alert" className="mt-3 text-sm text-red-600">{applicationError}</p>}
