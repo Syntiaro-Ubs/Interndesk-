@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Search, MapPin, Building2, ChevronRight, ArrowRight, GraduationCap, BookOpen, Users, Play, ChevronDown, ChevronUp, CheckCircle, Home as HomeIcon, Briefcase, BarChart3, Glasses, Heart, UserCheck, PenTool, DollarSign, TrendingUp, Settings, Code, Sparkles, CheckCircle2, Star, ShieldCheck } from "lucide-react";
 import { api } from "../api";
+import { formatTimeAgo, isInternshipOpen } from "../components/ui/utils";
 import heroBannerImg from "../../assets/home_hero_banner.jpg";
 function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
   const [internships, setInternships] = useState([]);
@@ -35,7 +36,7 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
       api.internships()
         .then((items) => {
           if (active) {
-            setInternships(items || []);
+            setInternships((items || []).filter(isInternshipOpen));
             setInternshipError("");
           }
         })
@@ -300,10 +301,10 @@ function LandingPage({ setView, setAuthParams, onSelectInternship, onSearch }) {
       )
       ),
         /* @__PURE__ */ React.createElement(
-        "span",
-        { className: "text-[10px] text-black/50 bg-[#f3f2ef] px-2 py-0.5 rounded font-medium flex-shrink-0" },
-        job.posted || job.ago || "Recent"
-      )
+          "span",
+          { className: "text-[10px] text-black/50 bg-[#f3f2ef] px-2 py-0.5 rounded font-medium flex-shrink-0" },
+          formatTimeAgo(job.createdAt || job.postedDate) || job.ago || job.posted || "Recent"
+        )
       ),
       /* @__PURE__ */ React.createElement(
         "h4",

@@ -3,7 +3,7 @@ import { ArrowLeft, Briefcase, Calendar, MapPin, Users, AlertCircle } from "luci
 import { api } from "../../api";
 import { CategoryBadge, ModeBadge } from "../../components/ui/Badges";
 import { EasyApplyModal } from "../../components/EasyApplyModal";
-import { formatDeadline } from "../../components/ui/utils";
+import { formatDeadline, isInternshipOpen } from "../../components/ui/utils";
 
 export function DetailsPage({ setView, onRequireSignup, internship: selectedInternship, userInfo }) {
   const [showApplyModal, setShowApplyModal] = useState(false);
@@ -41,6 +41,7 @@ export function DetailsPage({ setView, onRequireSignup, internship: selectedInte
   const perks = Array.isArray(selectedInternship.perks) ? selectedInternship.perks : [];
   const responsibilities = String(selectedInternship.responsibilities || "").split(/\n+/).map((item) => item.trim()).filter(Boolean);
   const eligibility = String(selectedInternship.eligibility || "").split(/\n+/).map((item) => item.trim()).filter(Boolean);
+  const isOpen = isInternshipOpen(selectedInternship);
 
   return (
     <main className="min-h-screen bg-background">
@@ -65,7 +66,7 @@ export function DetailsPage({ setView, onRequireSignup, internship: selectedInte
               <span>
                 <strong>Applications Closed:</strong> The deadline for this internship ended on{" "}
                 <span className="font-semibold underline">
-                  {selectedInternship.deadline ? new Date(selectedInternship.deadline).toLocaleDateString() : "the scheduled date"}
+                  {formatDeadline(selectedInternship.deadline)}
                 </span>
                 . This opening is no longer accepting new applications.
               </span>
@@ -78,7 +79,6 @@ export function DetailsPage({ setView, onRequireSignup, internship: selectedInte
             </button>
           </div>
         )}
-
         <section className="bg-card border border-border rounded-xl p-5 sm:p-7">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-5">
             <div>
@@ -107,7 +107,7 @@ export function DetailsPage({ setView, onRequireSignup, internship: selectedInte
                   : "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
               }`}
             >
-              {isExpired ? "Applications Closed" : isApplied ? "Applied" : "Apply"}
+              {isExpired ? "Applications Closed (Deadline Passed)" : isApplied ? "Applied" : "Apply"}
             </button>
           </div>
           {applicationError && <p role="alert" className="mt-3 text-sm text-red-600">{applicationError}</p>}
@@ -120,7 +120,7 @@ export function DetailsPage({ setView, onRequireSignup, internship: selectedInte
                 Calendar,
                 "Deadline",
                 selectedInternship.deadline
-                  ? `${new Date(selectedInternship.deadline).toLocaleDateString()}${isExpired ? " (Passed)" : ""}`
+                  ? `${formatDeadline(selectedInternship.deadline)}${isExpired ? " (Passed)" : ""}`
                   : ""
               ],
             ].filter(([, , value]) => value !== undefined && value !== null && value !== "").map(([Icon, label, value]) => (

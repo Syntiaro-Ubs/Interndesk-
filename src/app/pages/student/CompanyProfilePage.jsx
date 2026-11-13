@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { EasyApplyModal } from "../../components/EasyApplyModal";
 import { api } from "../../api";
+import { formatExactDate, isInternshipOpen } from "../../components/ui/utils";
 function CompanyProfilePage({ company: initialCompany, setView, userInfo }) {
   const [company, setCompany] = useState(initialCompany);
   const [companyInternships, setCompanyInternships] = useState([]);
@@ -23,7 +24,7 @@ function CompanyProfilePage({ company: initialCompany, setView, userInfo }) {
         api.company(initialCompany.id).then((data) => {
           if (!active) return;
           setCompany((current) => ({ ...current, ...data, ...(data.profileData || {}), logoUrl: data.logoUrl || data.profileData?.logo || "" }));
-          setCompanyInternships((data.internships || []).map((job) => ({
+          setCompanyInternships((data.internships || []).filter(isInternshipOpen).map((job) => ({
             ...job,
             company: data.name,
             logo: (data.name || "").slice(0, 2).toUpperCase(),
@@ -34,7 +35,7 @@ function CompanyProfilePage({ company: initialCompany, setView, userInfo }) {
             duration: job.duration,
             category: job.category,
             skills: job.skills || [],
-            posted: job.posted || job.postedDate || (job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "Recently"),
+            posted: formatExactDate(job.createdAt || job.postedDate) || job.posted || "Recently",
           })));
         }).catch(() => {});
       }

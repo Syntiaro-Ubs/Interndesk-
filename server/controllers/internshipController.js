@@ -1,6 +1,52 @@
 import { Op } from 'sequelize';
 import { Internship, Application, Notification, Company, User } from '../models/index.js';
 
+export function formatTimeAgo(dateInput) {
+  if (!dateInput) return 'Just now';
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return String(dateInput);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  if (diffMs < 60 * 1000) return 'Just now';
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+  const diffMonth = Math.floor(diffDay / 30);
+  const diffYear = Math.floor(diffDay / 365);
+
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffDay === 1) return 'Yesterday';
+  if (diffDay < 30) return `${diffDay} days ago`;
+  if (diffMonth < 12) return `${diffMonth} ${diffMonth === 1 ? 'month' : 'months'} ago`;
+  return `${diffYear} ${diffYear === 1 ? 'year' : 'years'} ago`;
+}
+
+export function formatExactDate(dateInput) {
+  if (!dateInput) return '';
+  const date = new Date(dateInput);
+  if (isNaN(date.getTime())) return String(dateInput);
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
+}
+
+export function attachDynamicDates(jobJson) {
+  if (!jobJson) return jobJson;
+  const sourceDate = jobJson.createdAt || jobJson.postedDate;
+  const exact = formatExactDate(sourceDate);
+  const ago = formatTimeAgo(sourceDate);
+  return {
+    ...jobJson,
+    postedDate: exact || jobJson.postedDate || 'Today',
+    posted: exact || jobJson.posted || 'Today',
+    ago: ago || jobJson.ago || 'Just now'
+  };
+}
+
 // ── HELPER: resolve company from request ──────────────────────
 async function resolveCompany(req) {
   const userEmail = req.headers['x-user-email'];
@@ -71,40 +117,47 @@ async function resolveCompany(req) {
 // ── GET ALL / SEARCH ──────────────────────────────────────────
 export const getAllInternships = async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
 
-    // Background auto-expiry: Mark any past-deadline internships as 'Expired'
+    // Automatically mark past-deadline internships as Expired in DB
     try {
       await Internship.update(
         { status: 'Expired' },
         {
           where: {
-            deadline: { [Op.lt]: today },
+            deadline: { [Op.lt]: todayStr },
             status: { [Op.notIn]: ['Closed', 'Expired'] }
           }
         }
       );
-    } catch (syncErr) {
-      console.warn('Auto-expiry sync notice:', syncErr.message);
+    } catch (e) {
+      console.warn('Could not auto-expire past deadline internships:', e.message);
     }
 
-    const { q, location, category, department, workMode, minStipend, includeExpired } = req.query;
+    const { q, location, category, department, workMode, minStipend, experience, includeExpired, all, status } = req.query;
     const where = {};
 
-    // Filter out expired & closed internships by default for public listings
-    if (includeExpired !== 'true') {
+    // Exclude expired and closed internships from public / student listings by default
+    if (includeExpired !== 'true' && all !== 'true') {
+      if (status && status !== 'all') {
+        where.status = status;
+      } else {
+        where.status = { [Op.in]: ['Active', 'Published'] };
+      }
       where[Op.and] = [
         ...(where[Op.and] || []),
         {
           [Op.or]: [
             { deadline: null },
-            { deadline: { [Op.gte]: today } }
+            { deadline: { [Op.gte]: todayStr } }
           ]
         },
         {
           status: { [Op.notIn]: ['Closed', 'Expired'] }
         }
       ];
+    } else if (status && status !== 'all') {
+      where.status = status;
     }
 
     if (q) {
@@ -173,7 +226,7 @@ export const getAllInternships = async (req, res) => {
     }
 
     const list = await Internship.findAll({ where, order: [['createdAt', 'DESC']] });
-    return res.json(list.map(i => i.toJSON()));
+    return res.json(list.map(i => attachDynamicDates(i.toJSON())));
   } catch (err) {
     console.error('getAllInternships error:', err);
     return res.status(500).json({ error: err.message });
@@ -189,13 +242,12 @@ export const getInternshipById = async (req, res) => {
       job = await Internship.findByPk(id);
     }
     if (!job) return res.status(404).json({ error: 'Internship not found' });
-
     const today = new Date().toISOString().split('T')[0];
     if (job.deadline && job.deadline < today && job.status !== 'Closed' && job.status !== 'Expired') {
       await job.update({ status: 'Expired' });
     }
 
-    return res.json(job.toJSON());
+    return res.json(attachDynamicDates(job.toJSON()));
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -242,8 +294,8 @@ export const createInternship = async (req, res) => {
       department: req.body.department || 'Software Development',
       skills,
       perks,
-      postedDate: 'Just now',
-      posted: 'Today',
+      postedDate: formatExactDate(new Date()),
+      posted: formatExactDate(new Date()),
       ago: 'Just now',
       openings: Number(req.body.openings) || 1,
       deadline: req.body.deadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -264,9 +316,9 @@ export const createInternship = async (req, res) => {
       console.warn('Could not increment openPositionsCount:', e.message);
     }
 
-    req.app?.locals?.emit?.('internship_created', newJob.toJSON());
+    req.app?.locals?.emit?.('internship_created', attachDynamicDates(newJob.toJSON()));
 
-    return res.status(201).json(newJob.toJSON());
+    return res.status(201).json(attachDynamicDates(newJob.toJSON()));
   } catch (err) {
     console.error('createInternship error:', err);
     return res.status(500).json({ error: err.message });
@@ -340,7 +392,7 @@ export const updateInternship = async (req, res) => {
     }
 
     req.app?.locals?.emit?.('internship_updated', job.toJSON());
-    return res.json(job.toJSON());
+    return res.json(attachDynamicDates(job.toJSON()));
   } catch (err) {
     console.error('updateInternship error:', err);
     return res.status(500).json({ error: err.message });
@@ -409,6 +461,19 @@ export const getCompanyInternships = async (req, res) => {
     const comp = await resolveCompany(req);
     if (!comp) return res.json([]);
 
+    const todayStr = new Date().toISOString().split('T')[0];
+    try {
+      await Internship.update(
+        { status: 'Expired' },
+        {
+          where: {
+            deadline: { [Op.lt]: todayStr },
+            status: { [Op.notIn]: ['Closed', 'Expired'] }
+          }
+        }
+      );
+    } catch {}
+
     const jobs = await Internship.findAll({
       where: {
         [Op.or]: [
@@ -418,7 +483,7 @@ export const getCompanyInternships = async (req, res) => {
       },
       order: [['createdAt', 'DESC']]
     });
-    return res.json(jobs.map(j => j.toJSON()));
+    return res.json(jobs.map(j => attachDynamicDates(j.toJSON())));
   } catch (err) {
     console.error('getCompanyInternships error:', err);
     return res.status(500).json({ error: err.message });

@@ -1,5 +1,6 @@
 import { Op, fn, col, literal } from 'sequelize';
 import { User, Company, Internship, Application, Notification } from '../models/index.js';
+import { attachDynamicDates } from './internshipController.js';
 
 // ── MIDDLEWARE: verify admin ──────────────────────────────────
 export const requireAdmin = async (req, res, next) => {
@@ -131,7 +132,7 @@ export const getAllJobs = async (req, res) => {
     }
     const offset = (Number(page) - 1) * Number(limit);
     const { count, rows } = await Internship.findAndCountAll({ where, order: [['createdAt', 'DESC']], limit: Number(limit), offset });
-    return res.json({ total: count, jobs: rows.map(j => j.toJSON()), page: Number(page) });
+    return res.json({ total: count, jobs: rows.map(j => attachDynamicDates(j.toJSON())), page: Number(page) });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

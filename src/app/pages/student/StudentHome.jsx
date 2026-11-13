@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Search, MapPin, Briefcase, ChevronDown, CheckCircle, Calendar, FileText, Bookmark, Monitor, AlertCircle } from "lucide-react";
 import { api } from "../../api";
+import { formatExactDate, isInternshipOpen } from "../../components/ui/utils";
 import { InternshipCard } from "../../components/ui/Cards";
 import { EasyApplyModal } from "../../components/EasyApplyModal";
 import { CAREER_RESOURCES } from "./CareerResources";
@@ -26,7 +27,7 @@ function StudentHome({ setView, userInfo, onSelectInternship, onSearch }) {
   useEffect(() => {
     let active = true;
     const fetchHomeData = () => {
-      api.internships().then((items) => { if (active) { setInternships(items || []); setInternshipError(""); } }).catch((error) => { if (active) setInternshipError(error.message || "Could not load internships."); }).finally(() => { if (active) setInternshipsLoading(false); });
+      api.internships().then((items) => { if (active) { setInternships((items || []).filter(isInternshipOpen)); setInternshipError(""); } }).catch((error) => { if (active) setInternshipError(error.message || "Could not load internships."); }).finally(() => { if (active) setInternshipsLoading(false); });
       api.companies().then((items) => { if (active) setCompanies(items || []); }).catch(() => {});
       if (userInfo?.id) api.studentProfile().then((profile) => { if (active) setProfileSkills(profile.skills || []); }).catch((error) => { if (active) setProfileError(error.message || "Could not load your profile."); });
       if (userInfo?.id) api.applications().then((items) => { if (active) setAppliedIds(items.map((item) => Number(item.jobId))); }).catch((error) => { if (active) setApplicationsError(error.message || "Could not load your applications."); });
@@ -204,7 +205,7 @@ function StudentHome({ setView, userInfo, onSelectInternship, onSearch }) {
                         <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded flex items-center gap-1 font-semibold">{i.duration}</span>
                         {i.stipend && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold">{i.stipend}</span>}
                       </div>
-                      <p className="text-xs text-black/50 mb-2">Posted {i.posted}</p>
+                      <p className="text-xs text-black/50 mb-2">Posted {formatExactDate(i.createdAt || i.postedDate) || i.posted || "Recently"}</p>
                     </div>
                     <div className="flex flex-col gap-2 w-full sm:w-auto">
                       {appliedIds.includes(i.id) ? (

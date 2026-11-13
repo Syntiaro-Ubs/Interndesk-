@@ -14,7 +14,7 @@ import {
 import { api } from "../../api";
 import { toast } from "sonner";
 import { CategoryBadge, ModeBadge } from "../../components/ui/Badges";
-import { formatDeadline } from "../../components/ui/utils";
+import { formatDeadline, formatExactDate, isInternshipOpen } from "../../components/ui/utils";
 
 const POSTED_OPTIONS = ["Any time", "Last 24 hours", "Last 3 days", "Last week", "Last month"];
 const EXPERIENCE_OPTIONS = [
@@ -277,8 +277,31 @@ function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
 
   const today = new Date().toISOString().split("T")[0];
   const filtered = allJobs.filter((i) => {
-    if (i.status === "Closed" || i.status === "Expired") return false;
-    if (i.deadline && String(i.deadline).split("T")[0] < today) return false;
+    if (!isInternshipOpen(i)) return false;
+    if (selExperience.length) {
+      const matchExp = selExperience.some((exp) => {
+        if (!exp || exp === "All Experience Levels") return true;
+        const target = `${i.experienceLevel || ""} ${i.eligibility || ""} ${i.title || ""} ${i.description || ""} ${i.responsibilities || ""}`.toLowerCase();
+        const expLow = exp.toLowerCase();
+        if (expLow.includes("fresher") || expLow.includes("entry level")) {
+          return target.includes("fresher") || target.includes("entry level") || target.includes("beginner") || target.includes("0-1") || target.includes("all experience") || (i.experienceLevel === "All Experience Levels");
+        }
+        if (expLow.includes("1st") || expLow.includes("2nd")) {
+          return target.includes("1st") || target.includes("2nd") || target.includes("first year") || target.includes("second year") || (i.experienceLevel === "All Experience Levels");
+        }
+        if (expLow.includes("pre-final")) {
+          return target.includes("pre-final") || target.includes("3rd") || target.includes("third year") || (i.experienceLevel === "All Experience Levels");
+        }
+        if (expLow.includes("final")) {
+          return target.includes("final") || target.includes("4th") || target.includes("fourth year") || target.includes("graduating") || (i.experienceLevel === "All Experience Levels");
+        }
+        if (expLow.includes("graduate")) {
+          return target.includes("graduate") || target.includes("passout") || target.includes("recent") || (i.experienceLevel === "All Experience Levels");
+        }
+        return target.includes(expLow) || (i.experienceLevel === "All Experience Levels");
+      });
+      if (!matchExp) return false;
+    }
     if (selCat.length) {
       const matchCat = selCat.some((c) => {
         if (c === i.category) return true;
@@ -413,7 +436,7 @@ function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
         },
         /* @__PURE__ */ React.createElement(Bookmark, { className: `w-5 h-5 ${isSaved ? "fill-[#0a66c2]" : ""}` })
       ))),
-      /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mt-3 pt-3 border-t border-[#e0dfdc]" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 text-xs text-black/50" }, /* @__PURE__ */ React.createElement("span", null, "Posted ", internship.posted), internship.deadline && /* @__PURE__ */ React.createElement("span", null, "Apply by ", formatDeadline(internship.deadline))), /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mt-3 pt-3 border-t border-[#e0dfdc]" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-4 text-xs text-black/50" }, /* @__PURE__ */ React.createElement("span", null, "Posted ", formatExactDate(internship.createdAt || internship.postedDate) || internship.posted || "Recently"), internship.deadline && /* @__PURE__ */ React.createElement("span", null, "Apply by ", formatDeadline(internship.deadline))), /* @__PURE__ */ React.createElement(
         "button",
         {
           onClick: (e) => {

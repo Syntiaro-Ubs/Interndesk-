@@ -131,12 +131,9 @@ export const applyForInternship = async (req, res) => {
       return res.status(404).json({ error: 'Internship not found' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
-    if (job.deadline && job.deadline < today) {
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (job.status === 'Closed' || job.status === 'Expired' || (job.deadline && String(job.deadline).slice(0, 10) < todayStr)) {
       return res.status(400).json({ error: 'Applications for this internship have closed because the deadline has passed.' });
-    }
-    if (job.status === 'Closed' || job.status === 'Expired') {
-      return res.status(400).json({ error: 'This internship is no longer accepting applications.' });
     }
 
     const email = authenticatedEmail;
@@ -403,14 +400,15 @@ const getMessageParticipant = async (application, email) => {
     User.findOne({ where: { email: cleanEmail, role: 'company' } }),
     User.findOne({ where: { email: cleanEmail } })
   ]);
-  if (user?.role === 'admin') return 'recruiter';
-  const companyId = company?.id || recruiter?.companyId;
-  const companyName = (company?.name || recruiter?.companyName || '').trim().toLowerCase();
+  if (!user || user?.role === 'admin' || user?.role === 'company' || user?.role === 'employer' || user?.role === 'recruiter') return 'recruiter';
+  const companyId = company?.id || recruiter?.companyId || user?.companyId;
+  const companyName = (company?.name || recruiter?.companyName || user?.companyName || '').trim().toLowerCase();
   const appCompany = (application.company || '').trim().toLowerCase();
   if (companyId && application.companyId && String(application.companyId) === String(companyId)) return 'recruiter';
   if (companyName && appCompany && (companyName === appCompany || appCompany.includes(companyName) || companyName.includes(appCompany))) return 'recruiter';
   if (company && !application.companyId && companyName === appCompany) return 'recruiter';
-  if (recruiter) return 'recruiter';
+  if (recruiter || company) return 'recruiter';
+  if (user.role !== 'student') return 'recruiter';
   return null;
 };
 
@@ -436,6 +434,40 @@ export const uploadResume = async (req, res) => {
   }
 };
 
+export function extractDocxParagraphs(base64Data) {
+  try {
+    const buffer = Buffer.from(base64Data, 'base64');
+    let offset = 0;
+    while (offset < buffer.length - 30) {
+      if (buffer.readUInt32LE(offset) !== 0x04034b50) break;
+      const method = buffer.readUInt16LE(offset + 8);
+      const compSize = buffer.readUInt32LE(offset + 18);
+      const nameLen = buffer.readUInt16LE(offset + 26);
+      const extraLen = buffer.readUInt16LE(offset + 28);
+      const name = buffer.toString('utf8', offset + 30, offset + 30 + nameLen);
+      const dataOffset = offset + 30 + nameLen + extraLen;
+      const compData = buffer.slice(dataOffset, dataOffset + compSize);
+      offset = dataOffset + compSize;
+
+      if (name === 'word/document.xml') {
+        const xml = method === 8 ? zlib.inflateRawSync(compData).toString('utf8') : compData.toString('utf8');
+        const paragraphs = xml.match(/<w:p[^>]*>.*?<\/w:p>/gs) || [];
+        return paragraphs.map((p) => {
+          const isHeading = p.includes('<w:pStyle w:val="Heading') || (p.includes('<w:b/>') && !p.includes('<w:b w:val="0"/>'));
+          const texts = (p.match(/<w:t[^>]*>(.*?)<\/w:t>/g) || []).map((t) =>
+            t.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+          );
+          const text = texts.join('').trim();
+          return { text, isBold: isHeading };
+        }).filter((p) => p.text.length > 0);
+      }
+    }
+  } catch (err) {
+    console.warn('extractDocxParagraphs error:', err.message);
+  }
+  return [];
+}
+
 export const getApplicationResume = async (req, res) => {
   try {
     const application = await Application.findByPk(req.params.id);
@@ -444,7 +476,36 @@ export const getApplicationResume = async (req, res) => {
     if (email && !await getMessageParticipant(application, email)) {
       return res.status(403).json({ error: 'You cannot access this resume' });
     }
-    const asset = await ResumeAsset.findByPk(application.resumeKey);
+    let asset = null;
+    if (application.resumeKey && application.resumeKey !== 'resume.pdf') {
+      asset = await ResumeAsset.findByPk(application.resumeKey);
+    }
+    // Fallback 1: check if student has uploaded any resume matching candidateEmail
+    if (!asset || !asset.dataBase64) {
+      const candidateEmail = String(application.candidateEmail || '').trim().toLowerCase();
+      if (candidateEmail) {
+        asset = await ResumeAsset.findOne({
+          where: { ownerEmail: candidateEmail },
+          order: [['createdAt', 'DESC']]
+        });
+      }
+    }
+    // Fallback 2: check if studentId account has uploaded any resume
+    if (!asset || !asset.dataBase64) {
+      if (application.studentId) {
+        const studentUser = await User.findByPk(application.studentId);
+        if (studentUser?.email) {
+          asset = await ResumeAsset.findOne({
+            where: { ownerEmail: studentUser.email.toLowerCase().trim() },
+            order: [['createdAt', 'DESC']]
+          });
+        }
+      }
+    }
+    // If recovered, link to application for fast future lookups
+    if (asset && asset.dataBase64 && (!application.resumeKey || application.resumeKey === 'resume.pdf')) {
+      try { await application.update({ resumeKey: asset.resumeKey }); } catch {}
+    }
     if (!asset || !asset.dataBase64) {
       return res.status(404).json({
         error: 'The uploaded resume file is unavailable in storage.',
@@ -454,7 +515,17 @@ export const getApplicationResume = async (req, res) => {
         college: application.college
       });
     }
-    return res.json({ fileName: asset.fileName, mimeType: asset.mimeType, dataBase64: asset.dataBase64 });
+    let docxParagraphs = null;
+    const isDocx = (asset.mimeType || '').includes('officedocument') || (asset.mimeType || '').includes('word') || (asset.fileName || '').toLowerCase().endsWith('.docx');
+    if (isDocx && asset.dataBase64) {
+      docxParagraphs = extractDocxParagraphs(asset.dataBase64);
+    }
+    return res.json({
+      fileName: asset.fileName,
+      mimeType: asset.mimeType,
+      dataBase64: asset.dataBase64,
+      docxParagraphs
+    });
   } catch (err) {
     console.error('getApplicationResume error:', err);
     return res.status(500).json({ error: err.message || 'Could not load this resume' });
@@ -469,7 +540,30 @@ export const streamApplicationResume = async (req, res) => {
     if (email && !await getMessageParticipant(application, email)) {
       return res.status(403).send('You cannot access this resume');
     }
-    const asset = await ResumeAsset.findByPk(application.resumeKey);
+    let asset = null;
+    if (application.resumeKey && application.resumeKey !== 'resume.pdf') {
+      asset = await ResumeAsset.findByPk(application.resumeKey);
+    }
+    if (!asset || !asset.dataBase64) {
+      const candidateEmail = String(application.candidateEmail || '').trim().toLowerCase();
+      if (candidateEmail) {
+        asset = await ResumeAsset.findOne({
+          where: { ownerEmail: candidateEmail },
+          order: [['createdAt', 'DESC']]
+        });
+      }
+    }
+    if (!asset || !asset.dataBase64) {
+      if (application.studentId) {
+        const studentUser = await User.findByPk(application.studentId);
+        if (studentUser?.email) {
+          asset = await ResumeAsset.findOne({
+            where: { ownerEmail: studentUser.email.toLowerCase().trim() },
+            order: [['createdAt', 'DESC']]
+          });
+        }
+      }
+    }
     if (!asset || !asset.dataBase64) {
       return res.status(404).send('Resume file is not available in storage');
     }

@@ -243,8 +243,20 @@ function StudentProfile({ setView, userInfo }) {
     "button",
     {
       onClick: async () => {
-        try { const file = await api.downloadResume(); const url = URL.createObjectURL(file); window.open(url, "_blank"); }
-        catch (error) { toast.error(error.message || "Could not open your resume."); }
+        try {
+          const file = await api.downloadResume();
+          const url = URL.createObjectURL(file);
+          const a = document.createElement("a");
+          a.href = url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } catch (error) {
+          toast.error(error.message || "Could not open your resume.");
+        }
       },
       className: "flex-1 py-2 bg-primary/10 text-primary rounded-lg text-xs hover:bg-primary/20 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
     },

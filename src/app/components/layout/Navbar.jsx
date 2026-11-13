@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Bell, Briefcase, Building2, ChevronDown, FileText, Home, ScrollText } from "lucide-react";
+import { Bell, Briefcase, Building2, ChevronDown, FileText, Home, ScrollText, Shield } from "lucide-react";
 import { api } from "../../api";
 import logoUrl from "../../../assets/interndesknewlogos.png";
 
@@ -192,13 +192,29 @@ function UserMenu({ displayName, initial, userInfo, navigate, logout, open, setO
             <p className="text-sm font-semibold text-foreground">{displayName}</p>
             {userInfo?.email && <p className="mt-0.5 text-xs text-muted-foreground truncate">{userInfo.email}</p>}
           </div>
-          <div className="p-2.5">
+          <div className="p-2.5 space-y-1">
             <button
               type="button"
               onClick={() => navigate(student ? "profile" : "company-portal")}
               className="w-full rounded-full border border-[#0a66c2] px-4 py-1.5 text-center text-sm font-semibold text-[#0a66c2] hover:bg-[#f4faff] cursor-pointer transition-colors"
             >
               {student ? "View Profile" : "Open Portal"}
+            </button>
+            {student && (
+              <button
+                type="button"
+                onClick={() => navigate("settings-privacy")}
+                className="w-full px-3 py-1.5 text-left text-xs text-muted-foreground hover:text-foreground hover:bg-background rounded-md transition-colors cursor-pointer"
+              >
+                Settings &amp; Privacy
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => navigate("help")}
+              className="w-full px-3 py-1.5 text-left text-xs text-muted-foreground hover:text-foreground hover:bg-background rounded-md transition-colors cursor-pointer"
+            >
+              Help &amp; Support
             </button>
           </div>
           <div className="border-t border-border p-2">
@@ -208,7 +224,7 @@ function UserMenu({ displayName, initial, userInfo, navigate, logout, open, setO
                 setOpen(false);
                 logout?.();
               }}
-              className="w-full px-3 py-1.5 text-left text-sm text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors cursor-pointer"
+              className="w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md transition-colors cursor-pointer"
             >
               Sign Out
             </button>
