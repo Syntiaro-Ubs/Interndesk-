@@ -35,6 +35,18 @@ function ResumeWorkspace({ setView, userInfo }) {
     return () => window.removeEventListener("keydown", handlePrintShortcut);
   }, [downloadUnlocked]);
   useEffect(() => () => { delete document.body.dataset.resumeDownloadUnlocked; }, []);
+
+  useEffect(() => {
+    if (!draftId) return;
+    api.resumeDownloadEntitlement(draftId)
+      .then(entitlement => {
+        if (entitlement?.paid) {
+          markDownloadUnlocked();
+        }
+      })
+      .catch(() => {});
+  }, [draftId, markDownloadUnlocked]);
+
   const downloadResume = async () => {
     if (!downloadUnlocked) {
       setIsPaymentModalOpen(true);
@@ -54,7 +66,19 @@ function ResumeWorkspace({ setView, userInfo }) {
   };
 
   return <div className="ats-resume-workspace flex h-[calc(100vh-176px)] min-h-[450px] flex-col overflow-hidden bg-slate-100 font-sans text-slate-900 lg:h-[calc(100vh-112px)]">
-    <BuilderTopBar onBack={() => setView("student-home")} onOpenATS={() => setIsATSModalOpen(true)} onOpenJD={() => setIsJDModalOpen(true)} onRequestDownload={() => setIsPaymentModalOpen(true)} />
+    <BuilderTopBar
+      onBack={() => setView("student-home")}
+      onOpenATS={() => setIsATSModalOpen(true)}
+      onOpenJD={() => setIsJDModalOpen(true)}
+      onRequestDownload={() => {
+        if (downloadUnlocked) {
+          downloadResume();
+        } else {
+          setIsPaymentModalOpen(true);
+        }
+      }}
+      isUnlocked={downloadUnlocked}
+    />
     <div className="flex min-h-0 flex-1 overflow-hidden">
       <div className="no-print hidden w-60 shrink-0 md:flex lg:w-64"><BuilderSidebar /></div>
       <div className={`min-w-0 flex-1 flex-col overflow-hidden ${isMobilePreviewOpen ? "hidden lg:flex" : "flex"}`}><ActiveSectionContent /></div>

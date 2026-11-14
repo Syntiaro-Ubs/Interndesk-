@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { api } from "../../api";
 import { toast } from "sonner";
-import { LogOut, Home, FileText, Building2, Users, Bell, Settings, Search, Trash2 } from "lucide-react";
+import { LogOut, Home, FileText, Building2, Users, Bell, Settings, Search, Trash2, CreditCard, Download, CheckCircle, Clock, XCircle } from "lucide-react";
 import { formatDeadline } from "../../components/ui/utils";
 
 export function AdminDashboard({ section, setSection, userInfo, logout, setView }) {
@@ -52,6 +52,17 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
 
   // Job detail modal
   const [viewingJob, setViewingJob] = useState(null);
+
+  // Payments & Revenue state
+  const [payments, setPayments] = useState([]);
+  const [paymentStats, setPaymentStats] = useState({ totalRevenue: 0, successCount: 0, failedCount: 0, pendingCount: 0, totalTransactions: 0, currentPlanPrice: 99 });
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("all");
+  const [paymentPage, setPaymentPage] = useState(1);
+  const [isEditingPrice, setIsEditingPrice] = useState(false);
+  const [newPriceInput, setNewPriceInput] = useState("");
+  const [priceUpdating, setPriceUpdating] = useState(false);
 
   const firstName = userInfo?.firstName || userInfo?.name?.split(" ")[0] || "Admin";
 
@@ -135,6 +146,71 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
   }, []);
 
   useEffect(() => { if (section === "settings") loadSettings(); }, [section, loadSettings]);
+
+  const loadPayments = useCallback(() => {
+    setPaymentsLoading(true);
+    api.adminPayments()
+      .then(res => {
+        setPayments(res.payments || []);
+        if (res.stats) setPaymentStats(res.stats);
+      })
+      .catch(() => toast.error("Failed to load payments history"))
+      .finally(() => setPaymentsLoading(false));
+  }, []);
+
+  useEffect(() => { if (section === "payments") loadPayments(); }, [section, loadPayments]);
+
+  const exportPaymentsCSV = () => {
+    if (!filteredPayments.length) {
+      toast.error("No successful payments to export.");
+      return;
+    }
+    const headers = ["ID", "Student Name", "Email", "Phone", "Invoice No", "Txn ID", "Amount", "Status", "Payment Mode", "Date"];
+    const rows = filteredPayments.map(p => {
+      const name = p.user?.name || (p.user?.firstName ? `${p.user.firstName} ${p.user.lastName || ''}`.trim() : (p.userEmail?.split('@')[0] || 'Student'));
+      return [
+        p.id,
+        `"${name}"`,
+        `"${p.userEmail || p.user?.email || ''}"`,
+        `"${p.userPhone || ''}"`,
+        `"${p.invoiceNumber || ''}"`,
+        `"${p.txnid || ''}"`,
+        p.amount || 99,
+        `"${p.status || 'SUCCESS'}"`,
+        `"${p.paymentMode || 'UPI / QR'}"`,
+        `"${new Date(p.createdAt).toLocaleString()}"`
+      ];
+    });
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `interndesk_payments_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    toast.success("Payments CSV exported successfully!");
+  };
+
+  const handleSaveResumePrice = async () => {
+    const num = Number(newPriceInput);
+    if (!newPriceInput || isNaN(num) || num <= 0) {
+      toast.error("Please enter a valid price (e.g. 49, 99, 149)");
+      return;
+    }
+    setPriceUpdating(true);
+    try {
+      const res = await api.adminUpdateResumePrice(num);
+      setPaymentStats(prev => ({ ...prev, currentPlanPrice: res.price || num }));
+      setSettings(prev => prev ? ({ ...prev, pricing: { ...prev.pricing, resumePrice: res.price || num } }) : prev);
+      setIsEditingPrice(false);
+      toast.success(res.message || `ATS Resume Plan Fee updated to ₹${num.toFixed(2)}!`);
+    } catch (err) {
+      toast.error(err.message || "Failed to update ATS resume fee");
+    } finally {
+      setPriceUpdating(false);
+    }
+  };
 
   // ── Actions ───────────────────────────────────────────────
   const handleJobAction = async (id, status) => {
@@ -226,8 +302,11 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
   const handleSaveSettings = async () => {
     setSettingsSaving(true);
     try {
-      await api.adminUpdateSettings(settings);
-      toast.success("Settings saved successfully");
+      const res = await api.adminUpdateSettings(settings);
+      if (res?.settings?.pricing?.resumePrice) {
+        setPaymentStats(prev => ({ ...prev, currentPlanPrice: res.settings.pricing.resumePrice }));
+      }
+      toast.success("Settings and pricing saved successfully");
     } catch {
       toast.error("Failed to save settings");
     } finally {
@@ -269,6 +348,27 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
   const totalInternshipPages = Math.ceil(allInternshipsTotal / 10);
   const totalCompanyPages = Math.ceil(companiesTotal / 10);
   const totalStudentPages = Math.ceil(studentsTotal / 10);
+
+  const filteredPayments = payments.filter(p => {
+    // Only show successful payments in history
+    if (p.status !== 'SUCCESS') return false;
+    if (paymentSearch.trim()) {
+      const q = paymentSearch.toLowerCase();
+      const name = (p.user?.name || (p.user?.firstName ? `${p.user.firstName} ${p.user.lastName || ''}` : '') || "").toLowerCase();
+      const email = (p.userEmail || p.user?.email || "").toLowerCase();
+      const phone = (p.userPhone || "").toLowerCase();
+      const txnid = (p.txnid || "").toLowerCase();
+      const invoice = (p.invoiceNumber || "").toLowerCase();
+      if (!name.includes(q) && !email.includes(q) && !phone.includes(q) && !txnid.includes(q) && !invoice.includes(q)) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const paymentPageSize = 10;
+  const totalPaymentPages = Math.max(1, Math.ceil(filteredPayments.length / paymentPageSize));
+  const paginatedPayments = filteredPayments.slice((paymentPage - 1) * paymentPageSize, paymentPage * paymentPageSize);
 
   // ── Pagination component ──────────────────────────────────
   const Pagination = ({ current, total, onChange }) => {
@@ -330,6 +430,7 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                 { icon: FileText, label: "All Internships", key: "internships" },
                 { icon: Building2, label: "Companies", key: "companies" },
                 { icon: Users, label: "Students", key: "students" },
+                { icon: CreditCard, label: "Payments", key: "payments" },
               ].map(item => (
                 <button key={item.key} onClick={() => setSection(item.key)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 6, border: "none", cursor: "pointer", background: section === item.key ? "#e8f1f8" : "transparent", color: section === item.key ? "#0a66c2" : "#717182", fontWeight: section === item.key ? 600 : 500, fontSize: 12, position: "relative" }}>
                   <item.icon size={16} />
@@ -941,6 +1042,197 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
           </>
         )}
 
+        {/* ═══ PAYMENTS & REVENUE ═══ */}
+        {section === "payments" && (
+          <>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+                <div>
+                  <h1 style={{ fontSize: 28, fontWeight: 700, color: "#030213", margin: 0 }}>Payments & Revenue</h1>
+                  <p style={{ fontSize: 13, color: "#717182", margin: "6px 0 0 0" }}>Verified student payment history and live revenue for ATS resume unlocks</p>
+                </div>
+                <button onClick={exportPaymentsCSV} style={{ ...S.btn(), background: "#ffffff", border: "2px solid #0a66c2", color: "#0a66c2", borderRadius: 20, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Download size={14} /> Export CSV
+                </button>
+              </div>
+
+              {/* Stat Cards Grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
+                <div style={S.statCard}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#16a34a" }}>₹{(paymentStats.totalRevenue || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>Total Revenue</div>
+                </div>
+                <div style={S.statCard}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: "#030213" }}>{paymentStats.successCount || 0}</div>
+                  <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>Successful Paid Students</div>
+                </div>
+                {isEditingPrice ? (
+                  <div style={{ ...S.statCard, border: "2px solid #0a66c2", background: "#f8fafc" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#0a66c2", marginBottom: 6 }}>
+                      EDIT ATS RESUME PLAN FEE
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 18, fontWeight: 700, color: "#030213" }}>₹</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={newPriceInput}
+                        onChange={(e) => setNewPriceInput(e.target.value)}
+                        placeholder="99"
+                        style={{ ...S.input, width: "90px", fontSize: 16, fontWeight: 700, padding: "4px 8px" }}
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleSaveResumePrice}
+                        disabled={priceUpdating}
+                        style={{ ...S.btn("sm"), background: "#0a66c2", color: "#fff", fontWeight: 600, padding: "6px 12px" }}
+                      >
+                        {priceUpdating ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        onClick={() => setIsEditingPrice(false)}
+                        disabled={priceUpdating}
+                        style={{ ...S.btn("sm"), background: "#e2e8f0", color: "#475569", padding: "6px 10px" }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 10, color: "#717182", marginTop: 6 }}>
+                      Updates live student checkouts instantly
+                    </div>
+                  </div>
+                ) : (
+                  <div style={S.statCard}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontSize: 24, fontWeight: 700, color: "#0a66c2" }}>
+                          ₹{Number(paymentStats.currentPlanPrice ?? 99).toFixed(2)}
+                        </div>
+                        <div style={{ fontSize: 11, color: "#717182", marginTop: 4 }}>ATS Resume Plan Fee</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setNewPriceInput(String(paymentStats.currentPlanPrice ?? 99));
+                          setIsEditingPrice(true);
+                        }}
+                        style={{
+                          background: "#e8f1f8",
+                          color: "#0a66c2",
+                          border: "none",
+                          padding: "4px 10px",
+                          borderRadius: 14,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4
+                        }}
+                      >
+                        Edit Fee
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Search Row */}
+              <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+                <div style={{ position: "relative", flex: 1, maxWidth: 540 }}>
+                  <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#717182" }} />
+                  <input
+                    style={{ ...S.input, width: "100%", paddingLeft: 36 }}
+                    placeholder="Search by student name, email, phone, Txn ID, or invoice..."
+                    value={paymentSearch}
+                    onChange={e => { setPaymentSearch(e.target.value); setPaymentPage(1); }}
+                  />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#16a34a", fontWeight: 600, background: "#dcfce7", padding: "6px 14px", borderRadius: 20 }}>
+                  <span>✓</span> Paid Students Only
+                </div>
+              </div>
+            </div>
+
+            {paymentsLoading ? (
+              <div style={{ textAlign: "center", padding: 40, color: "#717182" }}>Loading payment records...</div>
+            ) : (
+              <>
+                <div style={S.card}>
+                  <table style={S.table}>
+                    <thead>
+                      <tr>
+                        <th style={S.th}>STUDENT</th>
+                        <th style={S.th}>PHONE</th>
+                        <th style={S.th}>INVOICE NO</th>
+                        <th style={S.th}>TXN ID</th>
+                        <th style={S.th}>AMOUNT</th>
+                        <th style={S.th}>DATE & TIME</th>
+                        <th style={S.th}>MODE</th>
+                        <th style={S.th}>STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedPayments.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" style={{ ...S.td, textAlign: "center", color: "#717182", padding: "32px 16px" }}>
+                            No successful payment records found
+                          </td>
+                        </tr>
+                      ) : paginatedPayments.map(p => {
+                        const studentName = p.user?.name || (p.user?.firstName ? `${p.user.firstName} ${p.user.lastName || ''}`.trim() : (p.userEmail?.split('@')[0] || 'Student'));
+                        return (
+                          <tr key={p.id}>
+                            <td style={S.td}>
+                              <div style={{ fontWeight: 600, color: "#030213" }}>{studentName}</div>
+                              <div style={{ fontSize: 11, color: "#717182" }}>{p.userEmail || p.user?.email || "—"}</div>
+                            </td>
+                            <td style={S.td}>{p.userPhone || "—"}</td>
+                            <td style={S.td}>
+                              <span style={{ fontFamily: "monospace", fontSize: 11, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
+                                {p.invoiceNumber || "—"}
+                              </span>
+                            </td>
+                            <td style={S.td}>
+                              <div style={{ fontFamily: "monospace", fontSize: 11, color: "#334155" }}>{p.txnid}</div>
+                              {p.payuMoneyId && <div style={{ fontSize: 10, color: "#94a3b8" }}>PayU ID: {p.payuMoneyId}</div>}
+                            </td>
+                            <td style={{ ...S.td, fontWeight: 700, color: "#0f172a" }}>
+                              ₹{Number(p.amount || 99).toFixed(2)}
+                            </td>
+                            <td style={S.td}>{formatDate(p.createdAt)}</td>
+                            <td style={S.td}>
+                              <span style={{ fontSize: 11, background: "#e2e8f0", color: "#334155", padding: "2px 8px", borderRadius: 12, fontWeight: 600 }}>
+                                {p.paymentMode || "UPI / QR"}
+                              </span>
+                            </td>
+                            <td style={S.td}>
+                              <span style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "3px 10px",
+                                borderRadius: 12,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                background: "#dcfce7",
+                                color: "#15803d"
+                              }}>
+                                ● SUCCESS
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination current={paymentPage} total={totalPaymentPages} onChange={setPaymentPage} />
+              </>
+            )}
+          </>
+        )}
+
         {/* ═══ NOTIFICATIONS ═══ */}
         {section === "notifications" && (
           <>
@@ -1119,6 +1411,42 @@ export function AdminDashboard({ section, setSection, userInfo, logout, setView 
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* ATS Resume Pricing Card */}
+                <div style={{ ...S.card, gridColumn: "1 / -1", marginTop: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <div>
+                      <h3 style={{ fontSize: 14, fontWeight: 700, color: "#030213", margin: "0 0 4px 0" }}>ATS Resume Pricing Plan</h3>
+                      <p style={{ fontSize: 12, color: "#717182", margin: 0 }}>Configure the one-time PDF download fee charged to students unlocking their ATS resume</p>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "4px 10px", borderRadius: 12 }}>
+                      Live Rate: ₹{Number(settings.pricing?.resumePrice ?? paymentStats.currentPlanPrice ?? 99).toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, maxWidth: 380, marginTop: 14 }}>
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 15, fontWeight: 700, color: "#030213" }}>₹</span>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        style={{ ...S.input, paddingLeft: 28, fontSize: 14, fontWeight: 700 }}
+                        value={settings.pricing?.resumePrice ?? 99}
+                        onChange={(e) => setSettings(prev => ({
+                          ...prev,
+                          pricing: { ...prev.pricing, resumePrice: Number(e.target.value) || 1 }
+                        }))}
+                      />
+                    </div>
+                    <button
+                      onClick={handleSaveSettings}
+                      disabled={settingsSaving}
+                      style={{ ...S.btn(), background: "#0a66c2", color: "#fff", whiteSpace: "nowrap" }}
+                    >
+                      {settingsSaving ? "Saving..." : "Save Pricing"}
+                    </button>
                   </div>
                 </div>
               </div>

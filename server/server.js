@@ -11,6 +11,8 @@ import internshipRoutes from './routes/internshipRoutes.js';
 import applicationRoutes from './routes/applicationRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
+import { getResumePrice } from './controllers/paymentController.js';
 import { downloadOwnedResume, uploadResume } from './controllers/applicationController.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +35,10 @@ app.use(
 );
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve uploaded static files (avatars, company covers)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Request and response logger for development
 app.use((req, res, next) => {
@@ -94,6 +100,7 @@ app.use('/api/internships', internshipRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Direct resume assets access (supports frontend ${BASE_URL}/resumes/:key)
 app.get('/api/resumes/:key', downloadOwnedResume);
@@ -104,9 +111,9 @@ app.get('/api/config', (req, res) => {
   res.json({
     name: 'InternDesk API',
     version: '1.0.0',
-    frontendBaseUrl: '',
-    payuEnabled: false,
-    resumeDownloadPriceInr: 0
+    frontendBaseUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+    payuEnabled: Boolean(process.env.PAYU_KEY && process.env.PAYU_SALT),
+    resumeDownloadPriceInr: getResumePrice()
   });
 });
 

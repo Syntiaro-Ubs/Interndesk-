@@ -11,8 +11,14 @@ import Notification from './Notification.js';
 import ApplicationMessage from './ApplicationMessage.js';
 import ResumeAsset from './ResumeAsset.js';
 import EmailOtp from './EmailOtp.js';
+import Payment from './Payment.js';
+import SystemSetting from './SystemSetting.js';
 
 // ── Associations ─────────────────────────────────────────────
+// User has many Payments
+User.hasMany(Payment, { foreignKey: 'userId', as: 'payments' });
+Payment.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 // Company has many Users (recruiters)
 Company.hasMany(User, { foreignKey: 'companyId', as: 'recruiters' });
 User.belongsTo(Company, { foreignKey: 'companyId', as: 'company' });
@@ -27,4 +33,4 @@ Application.belongsTo(Internship, { foreignKey: 'jobId', as: 'internship' });
 Application.hasMany(ApplicationMessage, { foreignKey: 'applicationId', as: 'messages' });
 ApplicationMessage.belongsTo(Application, { foreignKey: 'applicationId', as: 'application' });
 
-export { sequelize, User, Company, Internship, Application, ApplicationMessage, ResumeAsset, Notification, EmailOtp };
+export { sequelize, User, Company, Internship, Application, ApplicationMessage, ResumeAsset, Notification, EmailOtp, Payment, SystemSetting };
