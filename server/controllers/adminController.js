@@ -1,6 +1,7 @@
 import { Op, fn, col, literal } from 'sequelize';
 import { User, Company, Internship, Application, Notification } from '../models/index.js';
 import { attachDynamicDates } from './internshipController.js';
+import { getResumePrice, setResumePrice } from './paymentController.js';
 
 // ── MIDDLEWARE: verify admin ──────────────────────────────────
 export const requireAdmin = async (req, res, next) => {
@@ -418,6 +419,9 @@ export const getAdminSettings = async (req, res) => {
         newJobSubmitted: true,
         newCompanySignup: true,
         weeklySummary: false
+      },
+      pricing: {
+        resumePrice: getResumePrice()
       }
     };
 
@@ -431,7 +435,7 @@ export const getAdminSettings = async (req, res) => {
 export const updateAdminSettings = async (req, res) => {
   try {
     const admin = req.adminUser;
-    const { profile, reviewRules, emailAlerts } = req.body;
+    const { profile, reviewRules, emailAlerts, pricing } = req.body;
 
     // Update admin profile if provided
     if (profile) {
@@ -440,6 +444,10 @@ export const updateAdminSettings = async (req, res) => {
         firstName: profile.firstName || admin.firstName,
         lastName: profile.lastName || admin.lastName
       });
+    }
+
+    if (pricing && pricing.resumePrice) {
+      await setResumePrice(pricing.resumePrice);
     }
 
     // In a real app, store reviewRules and emailAlerts in a settings table
@@ -453,7 +461,10 @@ export const updateAdminSettings = async (req, res) => {
         lastName: admin.lastName
       },
       reviewRules: reviewRules || { requireApproval: true, autoVerifyKnown: false, requireRejectionReason: true },
-      emailAlerts: emailAlerts || { newJobSubmitted: true, newCompanySignup: true, weeklySummary: false }
+      emailAlerts: emailAlerts || { newJobSubmitted: true, newCompanySignup: true, weeklySummary: false },
+      pricing: {
+        resumePrice: getResumePrice()
+      }
     };
 
     return res.json({ success: true, settings: updatedSettings });

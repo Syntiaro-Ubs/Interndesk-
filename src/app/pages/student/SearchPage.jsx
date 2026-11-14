@@ -151,10 +151,12 @@ function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
   const [searchTerm, setSearchTerm] = useState(initialFilters?.query || "");
   const [locationTerm, setLocationTerm] = useState(initialFilters?.location || "");
   const [selExperience, setSelExperience] = useState(() => {
-    if (initialFilters?.experience && initialFilters.experience !== "All Experience Levels") {
-      return [initialFilters.experience];
+    const raw = initialFilters?.experience;
+    if (!raw || raw === "All Experience Levels") return [];
+    if (Array.isArray(raw)) {
+      return raw.flat(Infinity).filter((x) => x && x !== "All Experience Levels");
     }
-    return [];
+    return [raw];
   });
   const [selCat, setSelCat] = useState([]);
   const [selDept, setSelDept] = useState([]);
@@ -172,11 +174,14 @@ function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
       if (initialFilters.query !== undefined) setSearchTerm(initialFilters.query || "");
       if (initialFilters.location !== undefined) setLocationTerm(initialFilters.location || "");
       if (initialFilters.experience !== undefined) {
-        setSelExperience(
-          initialFilters.experience && initialFilters.experience !== "All Experience Levels"
-            ? [initialFilters.experience]
-            : []
-        );
+        const raw = initialFilters.experience;
+        if (!raw || raw === "All Experience Levels") {
+          setSelExperience([]);
+        } else if (Array.isArray(raw)) {
+          setSelExperience(raw.flat(Infinity).filter((x) => x && x !== "All Experience Levels"));
+        } else {
+          setSelExperience([raw]);
+        }
       }
     }
   }, [initialFilters]);
@@ -279,10 +284,11 @@ function SearchPage({ setView, userRole, onSelectInternship, initialFilters }) {
   const filtered = allJobs.filter((i) => {
     if (!isInternshipOpen(i)) return false;
     if (selExperience.length) {
-      const matchExp = selExperience.some((exp) => {
+      const matchExp = selExperience.some((expItem) => {
+        const exp = Array.isArray(expItem) ? expItem[0] : expItem;
         if (!exp || exp === "All Experience Levels") return true;
         const target = `${i.experienceLevel || ""} ${i.eligibility || ""} ${i.title || ""} ${i.description || ""} ${i.responsibilities || ""}`.toLowerCase();
-        const expLow = exp.toLowerCase();
+        const expLow = typeof exp === "string" ? exp.toLowerCase() : String(exp).toLowerCase();
         if (expLow.includes("fresher") || expLow.includes("entry level")) {
           return target.includes("fresher") || target.includes("entry level") || target.includes("beginner") || target.includes("0-1") || target.includes("all experience") || (i.experienceLevel === "All Experience Levels");
         }

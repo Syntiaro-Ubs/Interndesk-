@@ -517,8 +517,13 @@ export const api = {
     if (!response.ok) throw new ApiError('Could not load the uploaded resume.', 'RESUME_LOAD_FAILED', response.status);
     return response.blob();
   },
-  createResumeDownloadPayment: async () => ({ success: true }),
-  resumeDownloadEntitlement: async () => ({ entitled: true }),
+  createResumeDownloadPayment: async ({ draftId, phone }) => {
+    return post('/payments/create-order', { draftId, phone });
+  },
+
+  resumeDownloadEntitlement: async (draftId) => {
+    return get(`/payments/resume-entitlement/${encodeURIComponent(draftId)}`);
+  },
 
   getResumeDraft: async (draftId) => {
     try { return JSON.parse(localStorage.getItem(`interndesk_resume_draft_${draftId}`) || 'null'); }
@@ -530,7 +535,13 @@ export const api = {
     return draft;
   },
 
-  downloadResumeDraft: async () => new Blob(['Sample Resume'], { type: 'application/pdf' }),
+  downloadResumeDraft: async (draftId) => {
+    return get(`/payments/download-auth/${encodeURIComponent(draftId)}`);
+  },
+
+  myPayments: async () => get('/payments/my-payments'),
+  adminPayments: async () => get('/payments/admin/all'),
+  adminUpdateResumePrice: async (price) => put('/payments/admin/price', { price }),
 
   // ── Notifications ──────────────────────────────────────────
   notifications: async () => get('/notifications'),
